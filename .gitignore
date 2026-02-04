@@ -1,0 +1,86 @@
+##############################
+# Java / Maven / Spring Boot
+##############################
+
+# Maven build output
+target/
+**/target/
+
+# Gradle build output (just in case)
+build/
+**/build/
+
+# Compiled class files
+*.class
+
+# Packaged artifacts
+*.jar
+*.war
+*.ear
+*.nar
+
+# Keep Maven Wrapper jar (should be committed)
+!**/.mvn/wrapper/maven-wrapper.jar
+
+##############################
+# Logs / Runtime files
+##############################
+logs/
+**/logs/
+*.log
+*.log.*
+*.out
+hs_err_pid*
+
+##############################
+# Archives / Dumps
+##############################
+*.zip
+*.gz
+*.tgz
+*.rar
+*.7z
+*.bak
+
+# SQL dumps (keep migrations/scripts)
+*.sql
+!**/src/main/resources/db.migration/**/*.sql
+!**/scripts/**/*.sql
+
+##############################
+# Local environment / secrets
+##############################
+.env
+.env.*
+*.local
+application-local.yml
+application-*.local.yml
+application-local.properties
+application-*.local.properties
+
+##############################
+# IDEs
+##############################
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### Eclipse / STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+
+### VS Code ###
+.vscode/
+
+##############################
+# OS
+##############################
+.DS_Store
+Thumbs.db

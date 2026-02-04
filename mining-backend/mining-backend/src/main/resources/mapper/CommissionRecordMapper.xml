@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.invite.mapper.CommissionRecordMapper">
+
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.invite.entity.CommissionRecord">
+        INSERT INTO commission_records (user_id, invitee_id, source_earning_id, source_earning_type, commission_amount, commission_rate, create_time)
+        VALUES (#{userId}, #{inviteeId}, #{sourceEarningId}, #{sourceEarningType}, #{commissionAmount}, #{commissionRate}, NOW())
+    </insert>
+
+    <!-- 汇总某个用户（作为邀请人）获得的所有佣金（CAL） -->
+    <select id="sumCommissionByUserId" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(commission_amount), 0)
+        FROM commission_records
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="sumCommissionByUserIdAndDateRange" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(commission_amount), 0)
+        FROM commission_records
+        WHERE user_id = #{userId}
+          AND create_time <![CDATA[>=]]> #{start}
+          AND create_time <![CDATA[<]]> #{end}
+    </select>
+
+</mapper>

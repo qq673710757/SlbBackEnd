@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.F2PoolAssetsBalanceMapper">
+
+    <resultMap id="F2PoolAssetsBalanceResultMap" type="com.slb.mining_backend.modules.xmr.entity.F2PoolAssetsBalance">
+        <id property="id" column="id"/>
+        <result property="account" column="account"/>
+        <result property="coin" column="coin"/>
+        <result property="miningUserName" column="mining_user_name"/>
+        <result property="address" column="address"/>
+        <result property="calculateEstimatedIncome" column="calculate_estimated_income"/>
+        <result property="historicalTotalIncomeOutcome" column="historical_total_income_outcome"/>
+        <result property="balance" column="balance"/>
+        <result property="immatureBalance" column="immature_balance"/>
+        <result property="paid" column="paid"/>
+        <result property="totalIncome" column="total_income"/>
+        <result property="yesterdayIncome" column="yesterday_income"/>
+        <result property="estimatedTodayIncomeRaw" column="estimated_today_income_raw"/>
+        <result property="estimatedTodayIncome" column="estimated_today_income"/>
+        <result property="payloadFingerprint" column="payload_fingerprint"/>
+        <result property="fetchedAt" column="fetched_at"/>
+        <result property="createdTime" column="created_time"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.xmr.entity.F2PoolAssetsBalance" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO f2pool_assets_balance
+        (account, coin, mining_user_name, address, calculate_estimated_income, historical_total_income_outcome,
+         balance, immature_balance, paid, total_income, yesterday_income, estimated_today_income_raw, estimated_today_income,
+         payload_fingerprint, fetched_at, created_time)
+        VALUES
+        (#{account}, #{coin}, #{miningUserName}, #{address}, #{calculateEstimatedIncome}, #{historicalTotalIncomeOutcome},
+         #{balance}, #{immatureBalance}, #{paid}, #{totalIncome}, #{yesterdayIncome}, #{estimatedTodayIncomeRaw}, #{estimatedTodayIncome},
+         #{payloadFingerprint}, #{fetchedAt}, #{createdTime})
+    </insert>
+
+    <select id="selectLatest" resultMap="F2PoolAssetsBalanceResultMap">
+        SELECT *
+        FROM f2pool_assets_balance
+        WHERE account = #{account}
+          AND coin = #{coin}
+        ORDER BY fetched_at DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectLatestBefore" resultMap="F2PoolAssetsBalanceResultMap">
+        SELECT *
+        FROM f2pool_assets_balance
+        WHERE account = #{account}
+          AND coin = #{coin}
+          AND fetched_at <![CDATA[<=]]> #{fetchedAt}
+        ORDER BY fetched_at DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectById" resultMap="F2PoolAssetsBalanceResultMap">
+        SELECT *
+        FROM f2pool_assets_balance
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+</mapper>

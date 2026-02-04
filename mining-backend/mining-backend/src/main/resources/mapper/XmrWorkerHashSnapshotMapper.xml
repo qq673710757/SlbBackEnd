@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.XmrWorkerHashSnapshotMapper">
+
+    <resultMap id="WorkerHashSnapshotMap" type="com.slb.mining_backend.modules.xmr.entity.XmrWorkerHashSnapshot">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="workerId" column="worker_id"/>
+        <result property="hashNowHps" column="hash_now_hps"/>
+        <result property="hashAvgHps" column="hash_avg_hps"/>
+        <result property="reportedAt" column="reported_at"/>
+        <result property="createdTime" column="created_time"/>
+    </resultMap>
+
+    <delete id="deleteByUserId">
+        DELETE FROM xmr_worker_hash_snapshot WHERE user_id = #{userId}
+    </delete>
+
+    <insert id="insertBatch">
+        INSERT INTO xmr_worker_hash_snapshot (user_id, worker_id, worker_name, hash_now_hps, hash_avg_hps, reported_at, created_time)
+        VALUES
+        <foreach collection="records" item="item" separator=",">
+            (#{item.userId}, #{item.workerId}, #{item.workerId}, #{item.hashNowHps}, #{item.hashAvgHps}, #{item.reportedAt}, NOW())
+        </foreach>
+    </insert>
+
+    <select id="selectByUserId" resultMap="WorkerHashSnapshotMap">
+        SELECT * FROM xmr_worker_hash_snapshot
+        WHERE user_id = #{userId}
+        <if test="since != null">
+            AND reported_at &gt;= #{since}
+        </if>
+        ORDER BY reported_at DESC
+    </select>
+
+</mapper>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.F2PoolWorkerSnapshotMapper">
+
+    <resultMap id="F2PoolWorkerSnapshotResultMap" type="com.slb.mining_backend.modules.xmr.entity.F2PoolWorkerSnapshot">
+        <id property="id" column="id"/>
+        <result property="account" column="account"/>
+        <result property="coin" column="coin"/>
+        <result property="workerId" column="worker_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="hashNowHps" column="hash_now_hps"/>
+        <result property="hashAvgHps" column="hash_avg_hps"/>
+        <result property="lastShareTime" column="last_share_time"/>
+        <result property="bucketTime" column="bucket_time"/>
+        <result property="status" column="status"/>
+        <result property="payloadFingerprint" column="payload_fingerprint"/>
+        <result property="createdTime" column="created_time"/>
+    </resultMap>
+
+    <insert id="insertBatch">
+        INSERT INTO f2pool_worker_snapshot
+        (account, coin, worker_id, user_id, hash_now_hps, hash_avg_hps, last_share_time, bucket_time, status, payload_fingerprint, created_time)
+        VALUES
+        <foreach collection="records" item="record" separator=",">
+            (#{record.account}, #{record.coin}, #{record.workerId}, #{record.userId}, #{record.hashNowHps}, #{record.hashAvgHps},
+             #{record.lastShareTime}, #{record.bucketTime}, #{record.status}, #{record.payloadFingerprint}, #{record.createdTime})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            user_id = VALUES(user_id),
+            hash_now_hps = VALUES(hash_now_hps),
+            hash_avg_hps = VALUES(hash_avg_hps),
+            last_share_time = VALUES(last_share_time),
+            status = VALUES(status),
+            payload_fingerprint = VALUES(payload_fingerprint)
+    </insert>
+
+    <select id="selectLatestBucketTime" resultType="java.time.LocalDateTime">
+        SELECT MAX(bucket_time)
+        FROM f2pool_worker_snapshot
+        WHERE account = #{account}
+          AND coin = #{coin}
+    </select>
+
+    <select id="sumHashrateByBucket" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(hash_now_hps), 0)
+        FROM f2pool_worker_snapshot
+        WHERE account = #{account}
+          AND coin = #{coin}
+          AND bucket_time = #{bucketTime}
+    </select>
+
+    <select id="selectLatestUnclaimed" resultMap="F2PoolWorkerSnapshotResultMap">
+        SELECT *
+        FROM f2pool_worker_snapshot
+        WHERE account = #{account}
+          AND coin = #{coin}
+          AND bucket_time = #{bucketTime}
+          AND user_id IS NULL
+        ORDER BY hash_now_hps DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.XmrWalletIncomingMapper">
+
+    <resultMap id="XmrWalletIncomingResultMap" type="com.slb.mining_backend.modules.xmr.entity.XmrWalletIncoming">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="subaddress" column="subaddress"/>
+        <result property="txHash" column="tx_hash"/>
+        <result property="amountXmr" column="amount_xmr"/>
+        <result property="blockHeight" column="block_height"/>
+        <result property="ts" column="ts"/>
+        <result property="settled" column="settled"/>
+        <result property="settledTime" column="settled_time"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.xmr.entity.XmrWalletIncoming" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO xmr_wallet_incoming (user_id, subaddress, tx_hash, amount_xmr, block_height, ts, settled, settled_time)
+        VALUES (#{userId}, #{subaddress}, #{txHash}, #{amountXmr}, #{blockHeight}, #{ts}, #{settled}, #{settledTime})
+    </insert>
+
+    <insert id="insertIgnore" parameterType="com.slb.mining_backend.modules.xmr.entity.XmrWalletIncoming" useGeneratedKeys="true" keyProperty="id">
+        INSERT IGNORE INTO xmr_wallet_incoming (user_id, subaddress, tx_hash, amount_xmr, block_height, ts, settled, settled_time)
+        VALUES (#{userId}, #{subaddress}, #{txHash}, #{amountXmr}, #{blockHeight}, #{ts}, #{settled}, #{settledTime})
+    </insert>
+
+    <select id="selectByTxHash" resultMap="XmrWalletIncomingResultMap">
+        SELECT * FROM xmr_wallet_incoming WHERE tx_hash = #{txHash}
+    </select>
+
+    <select id="selectByUserId" resultMap="XmrWalletIncomingResultMap">
+        SELECT * FROM xmr_wallet_incoming WHERE user_id = #{userId}
+    </select>
+
+    <select id="sumAmountByUserId" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(amount_xmr), 0)
+        FROM xmr_wallet_incoming
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="sumAmountBySubaddressInRange" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(amount_xmr), 0)
+        FROM xmr_wallet_incoming
+        WHERE subaddress = #{subaddress}
+          AND ts IS NOT NULL
+          AND ts &gt;= #{start}
+          AND ts &lt; #{end}
+    </select>
+
+    <select id="selectUnsettled" resultMap="XmrWalletIncomingResultMap">
+        SELECT * FROM xmr_wallet_incoming
+        WHERE settled = 0
+        ORDER BY ts ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectOldestUnsettledWithTs" resultMap="XmrWalletIncomingResultMap">
+        SELECT * FROM xmr_wallet_incoming
+        WHERE settled = 0
+          AND ts IS NOT NULL
+        ORDER BY ts ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectUnsettledInRange" resultMap="XmrWalletIncomingResultMap">
+        SELECT * FROM xmr_wallet_incoming
+        WHERE settled = 0
+          AND ts IS NOT NULL
+          AND ts &gt;= #{start}
+          AND ts &lt; #{end}
+        ORDER BY ts ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="markSettled">
+        UPDATE xmr_wallet_incoming
+        SET settled = 1,
+            settled_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="markSettledByTxHash">
+        UPDATE xmr_wallet_incoming
+        SET settled = 1,
+            settled_time = NOW()
+        WHERE tx_hash = #{txHash}
+    </update>
+
+    <select id="selectMaxBlockHeight" resultType="java.lang.Long">
+        SELECT MAX(block_height)
+        FROM xmr_wallet_incoming
+        WHERE block_height IS NOT NULL
+    </select>
+
+</mapper>

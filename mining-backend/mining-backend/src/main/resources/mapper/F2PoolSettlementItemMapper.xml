@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.F2PoolSettlementItemMapper">
+
+    <resultMap id="F2PoolSettlementItemResultMap" type="com.slb.mining_backend.modules.xmr.entity.F2PoolSettlementItem">
+        <id property="id" column="id"/>
+        <result property="settlementId" column="settlement_id"/>
+        <result property="account" column="account"/>
+        <result property="coin" column="coin"/>
+        <result property="userId" column="user_id"/>
+        <result property="workerKey" column="worker_key"/>
+        <result property="userScore" column="user_score"/>
+        <result property="revenueRatio" column="revenue_ratio"/>
+        <result property="grossAmountCoin" column="gross_amount_coin"/>
+        <result property="grossAmountCal" column="gross_amount_cal"/>
+        <result property="feeCal" column="fee_cal"/>
+        <result property="netCal" column="net_cal"/>
+        <result property="netCny" column="net_cny"/>
+        <result property="status" column="status"/>
+        <result property="remark" column="remark"/>
+        <result property="createdTime" column="created_time"/>
+    </resultMap>
+
+    <insert id="insertBatch">
+        INSERT INTO f2pool_settlement_item
+        (settlement_id, account, coin, user_id, worker_key, user_score, revenue_ratio,
+         gross_amount_coin, gross_amount_cal, fee_cal, net_cal, net_cny, status, remark, created_time)
+        VALUES
+        <foreach collection="records" item="record" separator=",">
+            (#{record.settlementId}, #{record.account}, #{record.coin}, #{record.userId}, #{record.workerKey}, #{record.userScore},
+             #{record.revenueRatio}, #{record.grossAmountCoin}, #{record.grossAmountCal}, #{record.feeCal}, #{record.netCal},
+             #{record.netCny}, #{record.status}, #{record.remark}, #{record.createdTime})
+        </foreach>
+    </insert>
+
+    <select id="findBySettlementId" resultMap="F2PoolSettlementItemResultMap">
+        SELECT *
+        FROM f2pool_settlement_item
+        WHERE settlement_id = #{settlementId}
+        ORDER BY gross_amount_cal DESC
+    </select>
+
+    <update id="updateStatusBySettlementId">
+        UPDATE f2pool_settlement_item
+        SET status = #{status}
+        WHERE settlement_id = #{settlementId}
+    </update>
+
+</mapper>

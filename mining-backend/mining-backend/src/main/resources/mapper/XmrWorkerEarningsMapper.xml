@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.XmrWorkerEarningsMapper">
+
+    <resultMap id="WorkerEarningsMap" type="com.slb.mining_backend.modules.xmr.entity.XmrWorkerEarnings">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="workerId" column="worker_id"/>
+        <result property="totalAtomic" column="total_atomic"/>
+        <result property="updatedTime" column="updated_time"/>
+    </resultMap>
+
+    <insert id="upsert">
+        INSERT INTO xmr_worker_earnings (user_id, worker_id, worker_name, total_atomic, updated_time)
+        VALUES (#{record.userId}, #{record.workerId}, #{record.workerId}, #{record.totalAtomic}, NOW())
+        ON DUPLICATE KEY UPDATE
+            total_atomic = total_atomic + VALUES(total_atomic),
+            updated_time = NOW()
+    </insert>
+
+    <select id="selectByUserId" resultMap="WorkerEarningsMap">
+        SELECT * FROM xmr_worker_earnings WHERE user_id = #{userId}
+    </select>
+
+</mapper>

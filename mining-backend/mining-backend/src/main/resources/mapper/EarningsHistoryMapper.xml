@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.earnings.mapper.EarningsHistoryMapper">
+
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.earnings.entity.EarningsHistory"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO earnings_history (user_id, device_id, amount_cal, amount_cny, bonus_cal_amount, earning_type, earning_time)
+        VALUES (#{userId}, #{deviceId}, #{amountCal}, #{amountCny}, #{bonusCalAmount}, #{earningType}, COALESCE(#{earningTime}, NOW()))
+    </insert>
+
+</mapper>

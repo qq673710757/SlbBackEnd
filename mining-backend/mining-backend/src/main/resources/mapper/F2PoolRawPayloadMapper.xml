@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.F2PoolRawPayloadMapper">
+
+    <resultMap id="F2PoolRawPayloadResultMap" type="com.slb.mining_backend.modules.xmr.entity.F2PoolRawPayload">
+        <id property="id" column="id"/>
+        <result property="account" column="account"/>
+        <result property="coin" column="coin"/>
+        <result property="endpoint" column="endpoint"/>
+        <result property="fingerprint" column="fingerprint"/>
+        <result property="payload" column="payload"/>
+        <result property="fetchedAt" column="fetched_at"/>
+        <result property="createdTime" column="created_time"/>
+    </resultMap>
+
+    <insert id="insertIgnore" parameterType="com.slb.mining_backend.modules.xmr.entity.F2PoolRawPayload">
+        INSERT IGNORE INTO f2pool_raw_payload
+        (account, coin, endpoint, fingerprint, payload, fetched_at, created_time)
+        VALUES
+        (#{account}, #{coin}, #{endpoint}, #{fingerprint}, #{payload}, #{fetchedAt}, #{createdTime})
+    </insert>
+
+    <select id="selectByFingerprint" resultMap="F2PoolRawPayloadResultMap">
+        SELECT *
+        FROM f2pool_raw_payload
+        WHERE account = #{account}
+          AND endpoint = #{endpoint}
+          AND fingerprint = #{fingerprint}
+        LIMIT 1
+    </select>
+
+</mapper>

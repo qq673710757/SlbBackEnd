@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.exchange.mapper.ExchangeRateMapper">
+
+    <resultMap id="ExchangeRateResultMap" type="com.slb.mining_backend.modules.exchange.entity.ExchangeRate">
+        <id property="id" column="id"/>
+        <result property="symbol" column="symbol"/>
+        <result property="px" column="px"/>
+        <result property="source" column="source"/>
+        <result property="createdTime" column="created_time"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.exchange.entity.ExchangeRate" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO exchange_rates (symbol, px, source, created_time)
+        VALUES (#{symbol}, #{px}, #{source}, NOW())
+    </insert>
+
+    <select id="selectLatestBySymbol" resultMap="ExchangeRateResultMap">
+        SELECT * FROM exchange_rates
+        WHERE symbol = #{symbol}
+        ORDER BY created_time DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectLatestBeforeBySymbol" resultMap="ExchangeRateResultMap">
+    <![CDATA[
+        SELECT * FROM exchange_rates
+        WHERE symbol = #{symbol}
+          AND created_time <= #{before}
+        ORDER BY created_time DESC
+        LIMIT 1
+        ]]>
+    </select>
+
+
+</mapper>

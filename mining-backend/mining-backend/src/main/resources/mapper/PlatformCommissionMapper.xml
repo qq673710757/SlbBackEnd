@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.invite.mapper.PlatformCommissionMapper">
+
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.invite.entity.PlatformCommission">
+        INSERT INTO platform_commissions (source_earning_id, user_id, device_id, original_earning_amount, platform_rate, platform_commission_amount, currency, create_time)
+        VALUES (#{sourceEarningId}, #{userId}, #{deviceId}, #{originalEarningAmount}, #{platformRate}, #{platformCommissionAmount}, #{currency}, NOW())
+    </insert>
+
+    <select id="sumCommissionByDateRange" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(platform_commission_amount), 0)
+        FROM platform_commissions
+        WHERE create_time BETWEEN #{startTime} AND #{endTime}
+    </select>
+
+    <select id="sumCommissionByDateRangeAndCurrency" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(platform_commission_amount), 0)
+        FROM platform_commissions
+        WHERE create_time <![CDATA[>=]]> #{startTime}
+          AND create_time <![CDATA[<]]> #{endTime}
+          AND currency = #{currency}
+    </select>
+
+</mapper>

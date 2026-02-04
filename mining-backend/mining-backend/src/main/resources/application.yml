@@ -1,0 +1,498 @@
+server:
+  port: 8080
+
+spring:
+  task:
+    scheduling:
+      pool:
+        # 定时任务线程池大小：保证“整点结算”跑较久时，入账同步/汇率刷新等任务仍可并发执行
+        size: 10
+      thread-name-prefix: slb-scheduler-
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3308/slb?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+#    url: jdbc:mysql://154.219.100.35:3308/slb?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: SLBpass@123
+#    username: root
+#    password: root
+  mail:
+    host: smtp.qq.com
+    port: 465
+    username: jzbaibot@qq.com
+    password: dtpwiryfobilbhji
+    protocol: smtps
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+  # 全局使用北京时间，避免因服务器时区漂移造成的时间错位
+  jackson:
+    time-zone: Asia/Shanghai
+  mvc:
+    time-zone: Asia/Shanghai
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Shanghai
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+security:
+  jwt:
+    secret: ours-super-long-and-secure-secret-key-for-production-32-chars
+    access-token-expire: 900
+    refresh-token-expire: 604800
+
+admin:
+  reset-password-code: your-super-long-and-secure-secret-key-for-production-32-chars
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    display-request-duration: true
+    doc-expansion: none
+  packages-to-scan: com.slb.mining_backend.modules
+
+app:
+  cors:
+    # 注意：CORS 只影响浏览器；移动端/服务端调用不受影响。
+    enabled: true
+    # 精确白名单（推荐生产使用）：例如 ["https://suanlibao.xyz"]
+    allowed-origins: []
+    # pattern 白名单：开发/内网可用通配；生产建议改成更严格的域名 pattern 或使用 allowed-origins
+    allowed-origin-patterns: ["*"]
+    allowed-methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    # 避免使用 "*"：部分浏览器/网关对 preflight 的 Access-Control-Allow-Headers: * 兼容性不佳
+    allowed-headers: ["Content-Type", "Authorization", "X-Requested-With", "X-Trace-Id"]
+    exposed-headers: ["X-Trace-Id"]
+    # 默认不允许携带 Cookie（更安全，且可配合 allowed-origin-patterns="*"）
+    allow-credentials: false
+    max-age-seconds: 3600
+  downloads:
+    # 是否启用“本地目录 -> /downloads/**”静态映射
+    enabled: true
+    # 安装包/更新包所在目录（建议放在 jar 外部，更新时无需重启/重新打包；按需放到同机磁盘或挂载盘）
+    # 可通过环境变量覆盖：APP_DOWNLOADS_DIR=/opt/slb/app-downloads
+    base-dir: C:/projects/app-downloads
+    # 对外访问路径前缀（downloadUrl 可填完整 URL 或直接填该前缀下的相对路径）
+    url-prefix: /downloads/
+  internal:
+    api-key: change-me
+  rates:
+    # 1 CAL = 0.001 XMR
+    cal-xmr-ratio: 0.001
+
+  withdraw:
+    min-amount: 3
+    daily-limit-count: 20
+    fee-rate: 0.01
+
+  invite:
+    base-url: https://suanlibao.xyz/register
+    commission-tiers:
+      - min: 1
+        max: 10
+        rate: 0.01
+      - min: 11
+        max: 100
+        rate: 0.03
+      - min: 101
+        max: 500
+        rate: 0.05
+      - min: 501
+        max: 999999
+        rate: 0.08
+    # 双向激励：被邀请者折扣（从平台抽成中让利），并控制成本
+    invitee-discount:
+      enabled: true
+      # 平台费率乘数：0.9 => 平台抽成打 9 折（用户多得的部分来自平台抽成）
+      platform-fee-multiplier: 0.9
+      duration-days: 30
+      # 折扣累计上限（按结算链路中的“CAL 等值”计量）
+      cap-cal: 10
+    # 被邀请者激活阈值：单次结算 >= 阈值后，邀请者才开始计佣
+    # 1 CAL = 0.001 XMR（见 app.rates.cal-xmr-ratio），为适配小算力用户，阈值下调
+    activation-threshold-xmr: 0.000001
+    # 邀请者每月佣金封顶（CAL 等值）
+    inviter-monthly-cap-cal: 200
+
+  platform:
+    commission-rate: 0.20
+    alert:
+      enabled: true
+      to-email: 673710757@qq.com
+
+  earnings:
+    estimate:
+      xmr-block-reward: 0.6
+      blocks-per-hour: 30
+      bonus-factor: 1.0
+      # 预估收益手动口径（CNY）：CPU 每 1000H / 天（0 表示关闭，使用实时矿池估算）
+      manual-cpu-daily-cny-per-1000h: 0
+      # GPU 每 1 MH / 天（0 表示关闭，使用实时矿池估算）
+      manual-gpu-daily-cny-per-1mh: 0
+      # GPU Octopus (CFX) 矿池费率（0-1之间，如 0.01 表示 1%），用于调整预估收益使其更接近实际矿池收益
+      gpu-octopus-pool-fee-rate: 0.01
+
+  devices:
+    offline-threshold-minutes: 5
+    offline-scan-fixed-delay-ms: 60000
+
+  xmr:
+    pool:
+      default-provider: c3pool
+      # worker 最后一次 share（lts）超过该秒数则认为离线，不参与 pool deltaAtomic 分摊（防止停机后仍分摊）
+      worker-stale-seconds: 600
+      request-max-retries: 2
+      request-retry-backoff-ms: 200
+      request-retry-max-backoff-ms: 3000
+      providers:
+        - id: c3pool
+          type: nodejs_pool
+          base: https://api.c3pool.com
+          endpoints:
+            stats: /miner/${address}/stats
+            workers: /miner/${address}/stats/allWorkers
+            payments: /miner/${address}/block_payments?page=0&limit=500
+            pool: /pool/stats
+          mapping:
+            unpaidAtomic: $.amtDue
+            paidTotalAtomic: $.amtPaid
+            hashrateHps: $.hash
+            timestamp: $.ts
+            workerArray: $.activeWorkers
+            workerId: $.id
+            workerHashNowHps: $.hash
+            workerHashAvgHps: $.hash2
+            workerTimestamp: $.lts
+            paymentArray: $
+            paymentAmount: $.value
+            paymentHash: $.hash
+            paymentTimestamp: $.ts
+            paymentHeight:
+          unit:
+            atomicPerXmr: 1000000000000
+          limits:
+            perHostReqPer15Min: 90
+            minRefreshSecPerAddress: 90
+    wallet:
+      enabled: true
+      master-address: 453bdVRBB9QbvV6vqgVkpvjRLPRPJ9CX86qX6VdxNQVyhJSUzJhw13yKfYqGY2s97Caef91zmip75f4n16VmuDv51X5SKKB
+      master-owner-user-id: 1
+      sync-interval-ms: 300000
+  f2pool:
+    enabled: true
+    base-url: https://api.f2pool.com
+    api-version: v2
+    accounts:
+      - name: suanlibaovip
+        coin: conflux
+        api-secret: eqoc0gemwbkwh95eht13stepp1bbp7z741i4g13266fdgichi3ah79lfh86jjcav
+    endpoints:
+      workers: /v2/hash_rate/worker/list
+      account: /{coin}/{account}
+      payout-history: /v2/assets/transactions/list
+      value-last-day: /{coin}/{account}
+      assets-balance: /v2/assets/balance
+    v1:
+      mapping:
+        workers-path: $.workers
+        worker-id: $.worker_name
+        worker-hashrate: $.hashrate
+        worker-hashrate-unit: $.hashrate_unit
+        worker-last-share: $.last_share_time
+        worker-array-id-index: 0
+        worker-array-hash-index: 1
+        worker-array-unit-index: 2
+        worker-array-last-share-index: 3
+        account-hashrate: $.hashrate
+        account-hashrate-unit: $.hashrate_unit
+        account-workers: $.workers
+        account-active-workers: $.active_workers
+        payout-array: $.payout_history
+        payout-amount: $.amount
+        payout-timestamp: $.timestamp
+        payout-date: $.date
+        payout-tx-id: $.txid
+        value-last-day: $.value_last_day
+    v2:
+      hashrate-supported-coins:
+        - bitcoin
+        - bitcoin-cash
+        - litecoin
+        - btc
+        - bch
+        - ltc
+      mapping:
+        workers-path: $.workers
+        worker-id: $.hash_rate_info.name
+        worker-hashrate: $.hash_rate_info.hash_rate
+        worker-h1-hashrate: $.hash_rate_info.h1_hash_rate
+        worker-h24-hashrate: $.hash_rate_info.h24_hash_rate
+        worker-last-share: $.last_share_at
+        payout-array: $.transactions
+        payout-amount: $.payout_extra.value
+        payout-timestamp: $.payout_extra.paid_time
+        payout-tx-id: $.payout_extra.tx_id
+    limits:
+      per-host-qps: 1.0
+      max-retries: 3
+      timeout-ms: 5000
+    worker-stale-seconds: 600
+    allow-synthetic-usr-from-raw-worker-id: false
+    worker-sync-interval-ms: 300000
+    account-sync-interval-ms: 90000
+    # 是否启用整点快照（用于对齐小时增量）
+    account-sync-cron-enabled: true
+    # 整点快照时间：默认每小时整点
+    account-sync-cron: "0 0 * * * ?"
+    payout-sync-interval-ms: 3600000
+    payout-history-lookback-days: 7
+    workers-page-size: 200
+    workers-max-pages: 10
+    include-value-last-day: false
+    assets-balance:
+      enabled: true
+      sync-interval-ms: 300000
+      calculate-estimated-income: true
+      historical-total-income-outcome: true
+      # CFX「今日已挖(预估)」在北京时间 08:00 重置
+      estimated-today-reset-hour: 8
+      estimated-today-reset-minute: 0
+      # 仅在 reset 窗口内将估算值置 0（分钟）
+      estimated-today-reset-window-minutes: 2
+      # reset 前补拍一次（建议 07:59）
+      pre-reset-cron-enabled: true
+      pre-reset-cron: "0 59 7 * * ?"
+    hourly-settlement:
+      enabled: true
+      cron: "0 5 * * * ?"
+      anomaly-multiplier: 10
+      anomaly-lookback-days: 7
+      anomaly-min-samples: 24
+      recent-hours-fallback: 4
+      recent-hours-min-samples: 1
+      # account_overview 快照距整点的最大允许偏差（分钟），超出则不使用 delta
+      account-overview-lag-minutes: 10
+      # payhash 缺失时使用最近窗口的 payhash 比例兜底
+      payhash-fallback-enabled: true
+      payhash-fallback-lookback-hours: 4
+      # 真实 payhash 回来后自动补差
+      payhash-adjustment-enabled: true
+    payhash:
+      timeseries:
+        table: f2pool_payhash_stats
+        account-column: account
+        coin-column: coin
+        worker-column: worker_id
+        payhash-column: payhash
+        time-column: bucket_time
+      derive-seconds: 300
+      prefer-hash-now-for-payhash: true
+    settlement:
+      enabled: false
+      cron: "0 10 * * * ?"
+      fee-rate: 0.01
+      unclaimed-user-id: 999
+      default-status: AUDIT
+    reconcile:
+      hashrate-diff-threshold: 0.05
+      revenue-diff-threshold: 0.02
+    valuation:
+      manual-coin-to-xmr:
+      coin-to-xmr-symbol: CFX/XMR
+      manual-coin-to-cal:
+      coin-to-cny-symbol: CFX/CNY
+  worker-id:
+    strip-prefix: suanlibao.
+  antpool:
+    enabled: true
+    base-url: https://antpool.com/api
+    user-id: suanlibao
+    coin: RVN
+    api-key: be61033ec96241d48ea63e3694228e3d
+    api-secret: dfeedd125e44402d9bed6534552bd5a5
+    valuation:
+      # 单独配置 Antpool 汇率源（为空则自动使用 <coin>/XMR 与 <coin>/CNY）
+      manual-coin-to-xmr:
+      coin-to-xmr-symbol:
+      manual-coin-to-cal:
+      coin-to-cny-symbol:
+    account-balance:
+      enabled: true
+    account-balance-sync-interval-ms: 300000
+    worker-sync-interval-ms: 300000
+    payout-sync-interval-ms: 3600000
+    worker-page-size: 50
+    payout-page-size: 50
+    limits:
+      per-host-qps: 1.0
+      max-retries: 2
+      timeout-ms: 5000
+    hourly-settlement:
+      enabled: true
+      cron: "0 5 * * * ?"
+      anomaly-multiplier: 10
+      anomaly-lookback-days: 7
+      anomaly-min-samples: 24
+    payhash:
+      timeseries:
+        table: antpool_payhash_stats
+        worker-column: worker_id
+        payhash-column: payhash
+        time-column: bucket_time
+  payhash:
+    timeseries:
+      table: miner_payhash_stats
+      worker-column: worker_id
+      payhash-column: payhash
+      time-column: bucket_time
+      sync-interval-ms: 3600000
+    derive-seconds: 300
+    # 安全开关：是否允许从“矿池返回的原始 workerId 文本”中解析 USR-<uid> 作为归属。
+    # 默认关闭：避免他人伪造 workerId=USR-17 等造成“蹭算力/错归属”。
+    # 若确实需要开启，请确保对应 workerId 已在 users.worker_id 中注册（会被 WorkerWhitelistService 同步到 Redis 白名单）。
+    allow-synthetic-usr-from-raw-worker-id: false
+    # payhash 估算时默认优先使用矿池“当前算力 hashNowHps”，避免 hashAvgHps（滑动平均）导致停机后长时间不归零
+    prefer-hash-now-for-payhash: true
+    # worker 最后一次 share（lts）超过该秒数则认为离线，不计入当分钟 payhash（防止停机后矿池残留值继续计入）
+    worker-stale-seconds: 600
+    # 上游异常时使用最近一次 worker 快照兜底（秒）
+    worker-cache-ttl-seconds: 120
+
+  settlement:
+    # 按小时整点结算：只结算上一小时 [HH:00, (HH+1):00) 内到账的入账记录（以 xmr_wallet_incoming.ts 为准）
+    job-cron: "0 0 * * * ?"
+    # 每批拉取量（上一小时范围内的未结算入账）
+    batch-size: 300
+    # 每次整点任务最多处理条数（避免单次跑太久）
+    max-items-per-run: 5000
+    # 每次整点任务最长运行时间（毫秒）
+    max-run-ms: 600000
+    # 缺少 payhash 窗口数据时的处理策略：
+    # - FALLBACK_ADMIN（默认）：兜底发给 admin 并置 settled（避免卡住队列）
+    # - FALLBACK_UNCLAIMED：兜底发给 unclaimed-user-id 并置 settled（用于“无人认领/缺历史数据”场景的统一归集）
+    # - SKIP：不发、不置 settled（用于测试期历史重建，避免错发给 admin）
+    missing-payhash-policy: FALLBACK_UNCLAIMED
+    # 当 missing-payhash-policy=SKIP 时，下一次重试的冷却分钟数（避免每分钟刷屏/反复打 DB）
+    missing-payhash-retry-minutes: 60
+    # payhash 相关告警的节流时间（分钟）
+    payhash-alert-throttle-minutes: 10
+    # 无人认领算力（worker 无法映射到用户）与舍入残差的归集用户（建议创建一个系统用户专门接收）
+    unclaimed-user-id: 999
+
+    # 基于 xmr_worker_earning_delta 的“日结算/落账明细”任务：
+    # - 业务日按北京时间（Asia/Shanghai）计算；
+    # - 由于 xmr_worker_earning_delta.window_end 以 UTC 语义存储，任务内部会自动把“昨日 00:00-24:00（BJT）”转换为 UTC 窗口；
+    # - 若存在更早未结算数据，任务会按天追赶（每次最多处理 worker-delta-max-days-per-run 天），避免漏日。
+    # - 重要：默认关闭，避免与“按小时入账结算（XmrWalletSettlementService）”同时启用时产生重复写 earnings_history 的风险。
+    worker-delta-daily-enabled: false
+    worker-delta-daily-cron: "0 10 0 * * ?"
+    worker-delta-max-days-per-run: 7
+
+  external-api:
+    c3pool-stats-url: https://api.c3pool.com/pool/stats
+    active-port-profit-max: 0.1
+    cal-to-cny-rate-url: https://api.coingecko.com/api/v3/simple/price?ids=calcium&vs_currencies=cny
+    cfx-rate-url: https://api.coingecko.com/api/v3/simple/price?ids=conflux-token&vs_currencies=cny,usd
+    rvn-xmr-rate-url: https://api.coingecko.com/api/v3/simple/price?ids=ravencoin,monero&vs_currencies=usd
+    pool-stats-refresh-ms: 300000
+    pool-stats-timeout-ms: 15000
+    coin-stats-refresh-ms: 300000
+    # WebClient 缓冲区大小（MB），用于处理大型 JSON 响应（如 CFX API）
+    webclient-buffer-size-mb: 10
+    # GPU estimate: coin profitability per MH/day or network hashrate.
+    # If profit-per-mh-path is provided, it takes precedence.
+    # F2Pool API 配置（推荐，与 F2Pool 页面显示一致）：
+    # 方式A - 官方 v2 API（稳定、可配置、需认证）：
+    #   cfx-f2pool-api-type: v2
+    #   cfx-f2pool-api-url: https://api.f2pool.com/v2/<request_name>
+    #   cfx-f2pool-api-token: <your-api-token>  # 从 F2Pool 后台 Account Settings → API → Generate API Token 获取
+    #   cfx-f2pool-api-request-body: {"currency":"conflux"}
+    # 方式B - 网页 XHR 接口（非官方、不稳定，仅作辅助）：
+    #   cfx-f2pool-api-type: web
+    #   cfx-f2pool-api-method: POST
+    #   cfx-f2pool-api-url: https://www.f2pool.com/coins-chart
+    #   cfx-f2pool-api-request-body: currency=conflux  # 按抓包实际请求体调整（form-urlencoded）
+    #   cfx-f2pool-api-content-type: application/x-www-form-urlencoded; charset=UTF-8
+    #   cfx-f2pool-api-origin: https://www.f2pool.com
+    #   cfx-f2pool-api-user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0
+    #   cfx-f2pool-api-cookie: ""  # 如需模拟浏览器会话，可填 Cookie
+    #   cfx-f2pool-api-referer: "https://www.f2pool.com/"
+    # 方式C - 页面解析（无需登录，稳定性取决于页面结构）：
+    #   cfx-f2pool-api-type: web
+    #   cfx-f2pool-api-method: GET
+    #   cfx-f2pool-api-url: https://www.f2pool.com/coin/conflux
+    # 方式D - Nanopool API（按 1 MH/s 的收益口径）：
+    #   cfx-nanopool-earnings-url: https://api.nanopool.org/v1/cfx/approximated_earnings/1
+    #   cfx-nanopool-earnings-multiplier: 0.85  # Nanopool 收益倍率（保守系数）
+    # 注意：优先 Nanopool，其次 F2Pool，最后回退到 Conflux 官方 API
+    cfx-f2pool-api-type: web
+    cfx-f2pool-api-method: GET
+    cfx-f2pool-api-url: https://www.f2pool.com/coin/conflux
+    # cfx-f2pool-api-request-body: currency=conflux
+    # cfx-f2pool-api-content-type: application/x-www-form-urlencoded; charset=UTF-8
+    cfx-f2pool-api-origin: https://www.f2pool.com
+    cfx-f2pool-api-user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0
+    # cfx-f2pool-api-token:
+    cfx-f2pool-api-cookie: '_ga=GA1.1.1174717124.1768202669; _ga_7E163DS1SV=GS2.1.s1769513594$o17$g1$t1769514518$j39$l0$h0; mp_63a9fbd604e8b4a918fa41622ec7e5ee_mixpanel=%7B%22distinct_id%22%3A%22%24device%3A7b22c1c9-4728-4ae0-a83c-02640e1b3bcb%22%2C%22%24device_id%22%3A%227b22c1c9-4728-4ae0-a83c-02640e1b3bcb%22%2C%22%24initial_referrer%22%3A%22https%3A%2F%2Fwww.f2pool.com%2Fuser%2Fhome%22%2C%22%24initial_referring_domain%22%3A%22www.f2pool.com%22%2C%22__mps%22%3A%7B%7D%2C%22__mpso%22%3A%7B%22%24initial_referrer%22%3A%22https%3A%2F%2Fwww.f2pool.com%2Fuser%2Fhome%22%2C%22%24initial_referring_domain%22%3A%22www.f2pool.com%22%7D%2C%22__mpus%22%3A%7B%7D%2C%22__mpa%22%3A%7B%7D%2C%22__mpu%22%3A%7B%7D%2C%22__mpr%22%3A%5B%5D%2C%22__mpap%22%3A%5B%5D%7D; ss_id=2|1:0|10:1768202741|5:ss_id|48:ZDAxMDk0NDMtOWQ3Ni00YmExLTg2NzItOWU4NDE5ZGJhOTYw|4decaedfa3c016576c5c56bf0d0ba80c1de3ef4680c385afdb8864685528a39f'
+    cfx-f2pool-api-referer: https://www.f2pool.com/
+    cfx-nanopool-earnings-url: https://api.nanopool.org/v1/cfx/approximated_earnings/1
+    cfx-nanopool-earnings-multiplier: 0.85
+    # 备用: Conflux 官方 API
+    cfx-stats-url: https://api.confluxscan.org/statistics/mining
+    cfx-profit-per-mh-path:
+    cfx-network-hashrate-path: /data/list/0/hashRate
+    cfx-network-hashrate-unit: H/S
+    # Conflux Core Space RPC (JSON-RPC) for block time fallback
+    cfx-rpc-url: https://main.confluxrpc.com
+    cfx-block-reward: 0.8
+    cfx-block-time-seconds: 0
+    cfx-block-time-seconds-url: https://api.confluxscan.org/statistics/mining
+    cfx-block-time-seconds-path: /data/list/0/blockTime
+    rvn-stats-url: https://rvn.2miners.com/api/stats
+    # RVN Antpool 计算器（Kawpow）优先
+    rvn-antpool-calculator-enabled: true
+    rvn-antpool-calculator-coin-type: RVN
+    # hashInput 单位为 H/s：1 MH/s = 1,000,000
+    rvn-antpool-calculator-hash-input: 1000000
+    # rvn-antpool-calculator-network-diff:
+    # rvn-antpool-calculator-fee-percent:
+    rvn-profit-per-mh-path:
+    rvn-network-hashrate-path: /nodes/0/networkhashps
+    rvn-network-hashrate-unit:
+    rvn-block-reward: 1250
+    rvn-block-time-seconds: 0
+    rvn-block-time-seconds-url: https://rvn.2miners.com/api/stats
+    rvn-block-time-seconds-path: /nodes/0/avgBlockTime
+  exchange:
+    rvn-xmr-cron: "0 2 * * * ?"
+
+logging:
+  level:
+    root: INFO
+    org.springframework: INFO
+    org.mybatis: INFO
+    com.slb.mining_backend: INFO
+    com.slb.mining_backend.modules.xmr.service.PayhashIngestionService: DEBUG
+    com.slb.mining_backend.modules.xmr.service.PoolPayhashSyncService: DEBUG

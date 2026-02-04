@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.XmrPoolStatsMapper">
+
+    <!-- ResultMap 映射 -->
+    <resultMap id="XmrPoolStatsResultMap" type="com.slb.mining_backend.modules.xmr.entity.XmrPoolStats">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="subaddress" column="subaddress"/>
+        <result property="lastHashrate" column="last_hashrate"/>
+        <result property="lastReportedShares" column="last_reported_shares"/>
+        <result property="unpaidXmr" column="unpaid_xmr"/>
+        <result property="paidXmrTotal" column="paid_xmr_total"/>
+        <result property="source" column="source"/>
+        <result property="lastUpdateTime" column="last_update_time"/>
+        <result property="workerId" column="worker_id"/>
+    </resultMap>
+
+    <!-- 查询 -->
+    <select id="selectByUserId" resultMap="XmrPoolStatsResultMap">
+        SELECT * FROM xmr_pool_stats WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectByWorkerId" resultMap="XmrPoolStatsResultMap">
+        SELECT * FROM xmr_pool_stats WHERE worker_id = #{workerId}
+    </select>
+
+    <select id="selectAll" resultMap="XmrPoolStatsResultMap">
+        SELECT * FROM xmr_pool_stats
+    </select>
+
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.xmr.entity.XmrPoolStats" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO xmr_pool_stats (user_id, subaddress, last_hashrate, last_reported_shares, unpaid_xmr, paid_xmr_total, source, worker_id)
+        VALUES (#{userId}, #{subaddress}, #{lastHashrate}, #{lastReportedShares}, #{unpaidXmr}, #{paidXmrTotal}, #{source}, #{workerId})
+    </insert>
+
+    <!-- 更新 -->
+    <update id="update" parameterType="com.slb.mining_backend.modules.xmr.entity.XmrPoolStats">
+        UPDATE xmr_pool_stats
+        SET last_hashrate = #{lastHashrate},
+            last_reported_shares = #{lastReportedShares},
+            unpaid_xmr = #{unpaidXmr},
+            paid_xmr_total = #{paidXmrTotal},
+            source = #{source},
+            last_update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

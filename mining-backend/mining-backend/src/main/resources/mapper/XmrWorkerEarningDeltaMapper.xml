@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.XmrWorkerEarningDeltaMapper">
+
+    <insert id="insert">
+        INSERT INTO xmr_worker_earning_delta (user_id, worker_id, worker_name, delta_atomic, window_start, window_end, created_time, settled)
+        VALUES (#{userId}, #{workerId}, #{workerId}, #{deltaAtomic}, #{windowStart}, #{windowEnd}, NOW(), 0)
+    </insert>
+
+    <select id="selectMinUnsettledWindowEnd" resultType="java.time.LocalDateTime">
+        SELECT MIN(window_end)
+        FROM xmr_worker_earning_delta
+        WHERE settled = 0
+    </select>
+
+    <select id="sumUnsettledBefore" resultType="com.slb.mining_backend.modules.xmr.dto.UserAtomicShare">
+        SELECT user_id AS userId, COALESCE(SUM(delta_atomic), 0) AS totalAtomic
+        FROM xmr_worker_earning_delta
+        WHERE settled = 0
+          AND window_end <![CDATA[<=]]> #{cutoff}
+        GROUP BY user_id
+    </select>
+
+    <update id="markSettledBefore">
+        UPDATE xmr_worker_earning_delta
+        SET settled = 1
+        WHERE settled = 0
+          AND window_end <![CDATA[<=]]> #{cutoff}
+    </update>
+
+    <update id="markSettledByUserIdBefore">
+        UPDATE xmr_worker_earning_delta
+        SET settled = 1
+        WHERE settled = 0
+          AND user_id = #{userId}
+          AND window_end <![CDATA[<=]]> #{cutoff}
+    </update>
+
+    <select id="sumUnsettledInRange" resultType="com.slb.mining_backend.modules.xmr.dto.UserAtomicShare">
+        SELECT user_id AS userId, COALESCE(SUM(delta_atomic), 0) AS totalAtomic
+        FROM xmr_worker_earning_delta
+        WHERE settled = 0
+          AND window_end <![CDATA[>=]]> #{start}
+          AND window_end <![CDATA[<]]> #{end}
+        GROUP BY user_id
+    </select>
+
+    <update id="markSettledInRange">
+        UPDATE xmr_worker_earning_delta
+        SET settled = 1
+        WHERE settled = 0
+          AND window_end <![CDATA[>=]]> #{start}
+          AND window_end <![CDATA[<]]> #{end}
+    </update>
+
+</mapper>

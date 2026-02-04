@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.F2PoolAlertMapper">
+
+    <resultMap id="F2PoolAlertResultMap" type="com.slb.mining_backend.modules.xmr.entity.F2PoolAlert">
+        <id property="id" column="id"/>
+        <result property="account" column="account"/>
+        <result property="coin" column="coin"/>
+        <result property="userId" column="user_id"/>
+        <result property="alertType" column="alert_type"/>
+        <result property="severity" column="severity"/>
+        <result property="refKey" column="ref_key"/>
+        <result property="message" column="message"/>
+        <result property="status" column="status"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="resolvedTime" column="resolved_time"/>
+        <result property="resolvedBy" column="resolved_by"/>
+    </resultMap>
+
+    <insert id="insertIgnore" parameterType="com.slb.mining_backend.modules.xmr.entity.F2PoolAlert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO f2pool_alert
+        (account, coin, user_id, alert_type, severity, ref_key, message, status, created_time, resolved_time, resolved_by)
+        VALUES
+        (#{account}, #{coin}, #{userId}, #{alertType}, #{severity}, #{refKey}, #{message}, #{status}, #{createdTime}, #{resolvedTime}, #{resolvedBy})
+    </insert>
+
+    <select id="countOpenByUserId" resultType="long">
+        SELECT COUNT(1)
+        FROM f2pool_alert
+        WHERE user_id = #{userId}
+          AND status = 'OPEN'
+    </select>
+
+    <select id="countByStatus" resultType="long">
+        SELECT COUNT(1)
+        FROM f2pool_alert
+        WHERE status = #{status}
+    </select>
+
+    <select id="findByStatusPaginated" resultMap="F2PoolAlertResultMap">
+        SELECT *
+        FROM f2pool_alert
+        WHERE status = #{status}
+        ORDER BY created_time DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <update id="resolveById">
+        UPDATE f2pool_alert
+        SET status = 'RESOLVED',
+            resolved_time = #{resolvedTime},
+            resolved_by = #{resolvedBy}
+        WHERE id = #{id}
+    </update>
+
+</mapper>

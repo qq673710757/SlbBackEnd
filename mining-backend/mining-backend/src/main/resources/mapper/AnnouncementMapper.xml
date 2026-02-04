@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.system.mapper.AnnouncementMapper">
+
+    <!-- 用户端查询：只查询已发布的 -->
+    <select id="findPaginated" resultType="com.slb.mining_backend.modules.system.entity.Announcement">
+        SELECT * FROM announcements WHERE status = 1 ORDER BY is_important DESC, create_time DESC LIMIT #{offset}, #{size}
+    </select>
+    <select id="count" resultType="long">
+        SELECT count(*) FROM announcements WHERE status = 1
+    </select>
+
+    <!-- ================================================== -->
+    <!--               管理员端 CRUD 操作                   -->
+    <!-- ================================================== -->
+
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.system.entity.Announcement" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO announcements (title, content, is_important, status, create_time)
+        VALUES (#{title}, #{content}, #{isImportant}, #{status}, NOW())
+    </insert>
+
+    <update id="update" parameterType="com.slb.mining_backend.modules.system.entity.Announcement">
+        UPDATE announcements
+        SET
+        title = #{title},
+        content = #{content},
+        is_important = #{isImportant},
+        status = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM announcements WHERE id = #{id}
+    </delete>
+
+    <select id="findById" resultType="com.slb.mining_backend.modules.system.entity.Announcement">
+        SELECT * FROM announcements WHERE id = #{id}
+    </select>
+
+    <!-- 管理员端查询：查询所有状态的公告 -->
+    <select id="findAllPaginated" resultType="com.slb.mining_backend.modules.system.entity.Announcement">
+        SELECT * FROM announcements ORDER BY create_time DESC LIMIT #{offset}, #{size}
+    </select>
+    <select id="countAll" resultType="long">
+        SELECT count(*) FROM announcements
+    </select>
+
+</mapper>

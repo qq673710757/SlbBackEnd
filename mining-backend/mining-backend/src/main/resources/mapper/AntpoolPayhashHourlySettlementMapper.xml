@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.AntpoolPayhashHourlySettlementMapper">
+
+    <resultMap id="AntpoolPayhashHourlySettlementResultMap" type="com.slb.mining_backend.modules.xmr.entity.AntpoolPayhashHourlySettlement">
+        <id property="id" column="id"/>
+        <result property="account" column="account"/>
+        <result property="coin" column="coin"/>
+        <result property="windowStart" column="window_start"/>
+        <result property="windowEnd" column="window_end"/>
+        <result property="totalCoin" column="total_coin"/>
+        <result property="totalCal" column="total_cal"/>
+        <result property="totalXmr" column="total_xmr"/>
+        <result property="rateSource" column="rate_source"/>
+        <result property="allocationSource" column="allocation_source"/>
+        <result property="fallbackReason" column="fallback_reason"/>
+        <result property="remark" column="remark"/>
+        <result property="cpuTotalCal" column="cpu_total_cal"/>
+        <result property="gpuCfxTotalCal" column="gpu_cfx_total_cal"/>
+        <result property="gpuRvnTotalCal" column="gpu_rvn_total_cal"/>
+        <result property="status" column="status"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="updatedTime" column="updated_time"/>
+    </resultMap>
+
+    <insert id="insertIgnore" parameterType="com.slb.mining_backend.modules.xmr.entity.AntpoolPayhashHourlySettlement" useGeneratedKeys="true" keyProperty="id">
+        INSERT IGNORE INTO antpool_payhash_hourly_settlements
+        (account, coin, window_start, window_end,
+         total_coin, total_cal, total_xmr, rate_source,
+         allocation_source, fallback_reason, remark, cpu_total_cal, gpu_cfx_total_cal, gpu_rvn_total_cal,
+         status, created_time, updated_time)
+        VALUES
+        (#{account}, #{coin}, #{windowStart}, #{windowEnd},
+         #{totalCoin}, #{totalCal}, #{totalXmr}, #{rateSource},
+         #{allocationSource}, #{fallbackReason}, #{remark}, #{cpuTotalCal}, #{gpuCfxTotalCal}, #{gpuRvnTotalCal},
+         #{status}, #{createdTime}, #{updatedTime})
+    </insert>
+
+    <select id="selectByAccountAndWindowStart" resultMap="AntpoolPayhashHourlySettlementResultMap">
+        SELECT *
+        FROM antpool_payhash_hourly_settlements
+        WHERE account = #{account}
+          AND coin = #{coin}
+          AND window_start = #{windowStart}
+        LIMIT 1
+    </select>
+
+    <select id="selectAverageTotalCoin" resultType="java.math.BigDecimal">
+        SELECT AVG(total_coin)
+        FROM antpool_payhash_hourly_settlements
+        WHERE account = #{account}
+          AND coin = #{coin}
+          AND status = 'SUCCESS'
+          AND window_start <![CDATA[>=]]> #{start}
+          AND window_start <![CDATA[<]]> #{end}
+    </select>
+
+    <select id="countByAccountAndWindowStartRange" resultType="int">
+        SELECT COUNT(1)
+        FROM antpool_payhash_hourly_settlements
+        WHERE account = #{account}
+          AND coin = #{coin}
+          AND status = 'SUCCESS'
+          AND window_start <![CDATA[>=]]> #{start}
+          AND window_start <![CDATA[<]]> #{end}
+    </select>
+
+    <select id="countByFilters" resultType="long">
+        SELECT COUNT(1)
+        FROM antpool_payhash_hourly_settlements
+        WHERE 1 = 1
+        <if test="account != null and account != ''">
+            AND account = #{account}
+        </if>
+        <if test="coin != null and coin != ''">
+            AND coin = #{coin}
+        </if>
+        <if test="startTime != null">
+            AND window_start <![CDATA[>=]]> #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND window_start <![CDATA[<=]]> #{endTime}
+        </if>
+    </select>
+
+    <select id="findByFiltersPaginated" resultMap="AntpoolPayhashHourlySettlementResultMap">
+        SELECT *
+        FROM antpool_payhash_hourly_settlements
+        WHERE 1 = 1
+        <if test="account != null and account != ''">
+            AND account = #{account}
+        </if>
+        <if test="coin != null and coin != ''">
+            AND coin = #{coin}
+        </if>
+        <if test="startTime != null">
+            AND window_start <![CDATA[>=]]> #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND window_start <![CDATA[<=]]> #{endTime}
+        </if>
+        ORDER BY window_start DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <update id="updateStatus">
+        UPDATE antpool_payhash_hourly_settlements
+        SET status = #{status},
+            updated_time = #{updatedTime}
+        WHERE id = #{id}
+    </update>
+
+</mapper>

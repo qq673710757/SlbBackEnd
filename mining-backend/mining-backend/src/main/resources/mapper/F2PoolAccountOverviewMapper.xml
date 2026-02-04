@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.F2PoolAccountOverviewMapper">
+
+    <resultMap id="F2PoolAccountOverviewResultMap" type="com.slb.mining_backend.modules.xmr.entity.F2PoolAccountOverview">
+        <id property="id" column="id"/>
+        <result property="account" column="account"/>
+        <result property="coin" column="coin"/>
+        <result property="hashrateHps" column="hashrate_hps"/>
+        <result property="workers" column="workers"/>
+        <result property="activeWorkers" column="active_workers"/>
+        <result property="fixedValue" column="fixed_value"/>
+        <result property="fetchedAt" column="fetched_at"/>
+        <result property="payloadFingerprint" column="payload_fingerprint"/>
+        <result property="createdTime" column="created_time"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.xmr.entity.F2PoolAccountOverview" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO f2pool_account_overview
+        (account, coin, hashrate_hps, workers, active_workers, fixed_value, fetched_at, payload_fingerprint, created_time)
+        VALUES
+        (#{account}, #{coin}, #{hashrateHps}, #{workers}, #{activeWorkers}, #{fixedValue}, #{fetchedAt}, #{payloadFingerprint}, #{createdTime})
+    </insert>
+
+    <select id="selectLatest" resultMap="F2PoolAccountOverviewResultMap">
+        SELECT *
+        FROM f2pool_account_overview
+        WHERE account = #{account}
+          AND coin = #{coin}
+        ORDER BY fetched_at DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectLatestBefore" resultMap="F2PoolAccountOverviewResultMap">
+        SELECT *
+        FROM f2pool_account_overview
+        WHERE account = #{account}
+          AND coin = #{coin}
+          AND fetched_at <![CDATA[<=]]> #{fetchedAt}
+        ORDER BY fetched_at DESC
+        LIMIT 1
+    </select>
+
+</mapper>

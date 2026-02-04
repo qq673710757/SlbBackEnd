@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.system.mapper.AppVersionConfigMapper">
+
+    <insert id="upsert" parameterType="com.slb.mining_backend.modules.system.entity.AppVersionConfig"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO app_version_configs
+        (platform, channel, latest_version, min_supported_version, force_update, download_url, updater_url, updater_signature, release_notes, status, create_time, update_time)
+        VALUES
+        (#{platform}, #{channel}, #{latestVersion}, #{minSupportedVersion}, #{forceUpdate}, #{downloadUrl}, #{updaterUrl}, #{updaterSignature}, #{releaseNotes}, #{status}, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+            latest_version = VALUES(latest_version),
+            min_supported_version = VALUES(min_supported_version),
+            force_update = VALUES(force_update),
+            download_url = VALUES(download_url),
+            updater_url = VALUES(updater_url),
+            updater_signature = VALUES(updater_signature),
+            release_notes = VALUES(release_notes),
+            status = VALUES(status),
+            update_time = NOW()
+    </insert>
+
+    <select id="findByPlatformChannel" resultType="com.slb.mining_backend.modules.system.entity.AppVersionConfig">
+        SELECT
+            *
+        FROM app_version_configs
+        WHERE platform = #{platform}
+          AND channel = #{channel}
+        LIMIT 1
+    </select>
+
+    <select id="findActiveByPlatformChannel" resultType="com.slb.mining_backend.modules.system.entity.AppVersionConfig">
+        SELECT
+            *
+        FROM app_version_configs
+        WHERE platform = #{platform}
+          AND channel = #{channel}
+          AND status = 1
+        LIMIT 1
+    </select>
+
+</mapper>
+
+

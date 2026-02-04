@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.system.mapper.PlatformCommissionRateMapper">
+
+    <resultMap id="PlatformCommissionRateMap" type="com.slb.mining_backend.modules.system.entity.PlatformCommissionRate">
+        <id property="id" column="id"/>
+        <result property="ratePercent" column="rate_percent"/>
+        <result property="updatedBy" column="updated_by"/>
+        <result property="updatedTime" column="updated_time"/>
+        <result property="createdTime" column="created_time"/>
+    </resultMap>
+
+    <select id="selectCurrent" resultMap="PlatformCommissionRateMap">
+        SELECT *
+        FROM platform_commission_rate
+        WHERE id = 1
+        LIMIT 1
+    </select>
+
+    <insert id="upsert" parameterType="com.slb.mining_backend.modules.system.entity.PlatformCommissionRate">
+        INSERT INTO platform_commission_rate
+        (id, rate_percent, updated_by, updated_time, created_time)
+        VALUES
+        (#{id}, #{ratePercent}, #{updatedBy}, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+            rate_percent = VALUES(rate_percent),
+            updated_by = VALUES(updated_by),
+            updated_time = NOW()
+    </insert>
+</mapper>

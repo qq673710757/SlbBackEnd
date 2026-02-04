@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.device.mapper.DeviceReportMapper">
+
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.device.entity.DeviceReport" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO device_reports (user_id, device_id, hashrate, shares, uptime, version, signature, status, report_time, worker_id)
+        VALUES (#{userId}, #{deviceId}, #{hashrate}, #{shares}, #{uptime}, #{version}, #{signature}, #{status}, #{reportTime}, #{workerId})
+    </insert>
+
+</mapper>

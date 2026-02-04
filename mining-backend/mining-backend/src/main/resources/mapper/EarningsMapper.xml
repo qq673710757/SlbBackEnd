@@ -1,0 +1,504 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.earnings.mapper.EarningsMapper">
+
+    <select id="findHistoryPaginated" resultType="com.slb.mining_backend.modules.earnings.vo.EarningsHistoryItemVo">
+        SELECT
+        h.id,
+        h.device_id AS deviceId,
+        d.device_name AS deviceName,
+        h.amount_cal AS amountCal,
+        h.amount_cny AS amountCny,
+        h.earning_time AS earningTime,
+        h.earning_type AS earningType,
+        CASE
+            WHEN h.earning_type IN ('INVITE', 'INVITE_CPU', 'INVITE_GPU') THEN 'INVITE'
+            ELSE h.earning_type
+        END AS earningTypeGroup,
+        CASE
+            WHEN h.earning_type = 'INVITE_CPU' THEN 'CPU'
+            WHEN h.earning_type = 'INVITE_GPU' THEN 'GPU'
+            ELSE NULL
+        END AS inviteSourceType,
+        COALESCE((
+          SELECT pc.currency
+          FROM platform_commissions pc
+          WHERE pc.source_earning_id = h.id
+          ORDER BY pc.id DESC
+          LIMIT 1
+        ), 'CAL') AS settleCurrency
+        FROM earnings_history h
+        LEFT JOIN devices d ON h.device_id = d.id
+        WHERE h.user_id = #{userId}
+        <if test="deviceId != null and deviceId != ''">
+            AND h.device_id = #{deviceId}
+        </if>
+        <if test="earningType != null and earningType != ''">
+            <choose>
+                <!-- 兼容：INVITE 需要同时匹配新拆分的 INVITE_CPU / INVITE_GPU -->
+                <when test="earningType == 'INVITE'">
+                    AND h.earning_type IN ('INVITE', 'INVITE_CPU', 'INVITE_GPU')
+                </when>
+                <when test="earningType == 'GPU'">
+                    AND h.earning_type LIKE 'GPU%'
+                </when>
+                <otherwise>
+                    AND h.earning_type = #{earningType}
+                </otherwise>
+            </choose>
+        </if>
+        <if test="startDate != null">
+            AND h.earning_time >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND h.earning_time &lt;= #{endDate}
+        </if>
+        ORDER BY h.earning_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="findHistoryHourlyPaginated" resultType="com.slb.mining_backend.modules.earnings.vo.EarningsHistoryHourlyItemVo">
+        SELECT
+            -- 小时桶起始时间（HH:00:00）
+            FROM_UNIXTIME(UNIX_TIMESTAMP(t.earning_time) - MOD(UNIX_TIMESTAMP(t.earning_time), 3600)) AS earningTime,
+            <choose>
+                <when test="groupByEarningType">
+                    t.earning_type AS earningType,
+                </when>
+                <otherwise>
+                    <choose>
+                        <when test="earningType != null and earningType != ''">
+                            #{earningType} AS earningType,
+                        </when>
+                        <otherwise>
+                            'ALL' AS earningType,
+                        </otherwise>
+                    </choose>
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="groupByEarningType">
+                    CASE
+                        WHEN t.earning_type IN ('INVITE', 'INVITE_CPU', 'INVITE_GPU') THEN 'INVITE'
+                        ELSE t.earning_type
+                    END AS earningTypeGroup,
+                </when>
+                <otherwise>
+                    <choose>
+                        <when test="earningType != null and earningType != ''">
+                            CASE
+                                WHEN #{earningType} IN ('INVITE', 'INVITE_CPU', 'INVITE_GPU') THEN 'INVITE'
+                                ELSE #{earningType}
+                            END AS earningTypeGroup,
+                        </when>
+                        <otherwise>
+                            'ALL' AS earningTypeGroup,
+                        </otherwise>
+                    </choose>
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="groupByEarningType">
+                    CASE
+                        WHEN t.earning_type = 'INVITE_CPU' THEN 'CPU'
+                        WHEN t.earning_type = 'INVITE_GPU' THEN 'GPU'
+                        ELSE NULL
+                    END AS inviteSourceType,
+                </when>
+                <otherwise>
+                    <choose>
+                        <!-- 默认 hour 聚合下，只有当筛选 INVITE（含 INVITE_CPU/INVITE_GPU）时，inviteSourceType 才有意义 -->
+                        <when test="earningType != null and earningType != '' and earningType == 'INVITE'">
+                            CASE
+                                WHEN COUNT(DISTINCT CASE WHEN t.earning_type IN ('INVITE_CPU','INVITE_GPU') THEN t.earning_type END) > 1 THEN 'MIXED'
+                                WHEN COUNT(DISTINCT CASE WHEN t.earning_type IN ('INVITE_CPU','INVITE_GPU') THEN t.earning_type END) = 1
+                                     AND MAX(CASE WHEN t.earning_type IN ('INVITE_CPU','INVITE_GPU') THEN t.earning_type END) = 'INVITE_CPU' THEN 'CPU'
+                                WHEN COUNT(DISTINCT CASE WHEN t.earning_type IN ('INVITE_CPU','INVITE_GPU') THEN t.earning_type END) = 1
+                                     AND MAX(CASE WHEN t.earning_type IN ('INVITE_CPU','INVITE_GPU') THEN t.earning_type END) = 'INVITE_GPU' THEN 'GPU'
+                                ELSE NULL
+                            END AS inviteSourceType,
+                        </when>
+                        <when test="earningType != null and earningType != '' and earningType == 'INVITE_CPU'">
+                            'CPU' AS inviteSourceType,
+                        </when>
+                        <when test="earningType != null and earningType != '' and earningType == 'INVITE_GPU'">
+                            'GPU' AS inviteSourceType,
+                        </when>
+                        <otherwise>
+                            NULL AS inviteSourceType,
+                        </otherwise>
+                    </choose>
+                </otherwise>
+            </choose>
+            SUM(t.amount_cal) AS amountCal,
+            SUM(t.amount_cny) AS amountCny,
+            COUNT(*) AS recordCount,
+            CASE
+                WHEN COUNT(DISTINCT t.settleCurrency) = 1 THEN MAX(t.settleCurrency)
+                WHEN COUNT(DISTINCT t.settleCurrency) = 0 THEN NULL
+                ELSE 'MIXED'
+            END AS settleCurrency
+        FROM (
+            SELECT
+                h.id,
+                h.amount_cal,
+                h.amount_cny,
+                h.earning_time,
+                h.earning_type,
+                COALESCE((
+                    SELECT pc.currency
+                    FROM platform_commissions pc
+                    WHERE pc.source_earning_id = h.id
+                    ORDER BY pc.id DESC
+                    LIMIT 1
+                ), 'CAL') AS settleCurrency
+            FROM earnings_history h
+            WHERE h.user_id = #{userId}
+            <if test="deviceId != null and deviceId != ''">
+                AND h.device_id = #{deviceId}
+            </if>
+        <if test="earningType != null and earningType != ''">
+            <choose>
+                <when test="earningType == 'INVITE'">
+                    AND h.earning_type IN ('INVITE', 'INVITE_CPU', 'INVITE_GPU')
+                </when>
+                <when test="earningType == 'GPU'">
+                    AND h.earning_type LIKE 'GPU%'
+                </when>
+                <otherwise>
+                    AND h.earning_type = #{earningType}
+                </otherwise>
+            </choose>
+        </if>
+            <if test="earningType != null and earningType != ''">
+                <choose>
+                    <when test="earningType == 'INVITE'">
+                        AND h.earning_type IN ('INVITE', 'INVITE_CPU', 'INVITE_GPU')
+                    </when>
+                    <when test="earningType == 'GPU'">
+                        AND h.earning_type LIKE 'GPU%'
+                    </when>
+                    <otherwise>
+                        AND h.earning_type = #{earningType}
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="startDate != null">
+                AND h.earning_time >= #{startDate}
+            </if>
+            <if test="endDate != null">
+                AND h.earning_time &lt;= #{endDate}
+            </if>
+        ) t
+        <choose>
+            <when test="groupByEarningType">
+                GROUP BY
+                    FROM_UNIXTIME(UNIX_TIMESTAMP(t.earning_time) - MOD(UNIX_TIMESTAMP(t.earning_time), 3600)),
+                    t.earning_type
+            </when>
+            <otherwise>
+                GROUP BY FROM_UNIXTIME(UNIX_TIMESTAMP(t.earning_time) - MOD(UNIX_TIMESTAMP(t.earning_time), 3600))
+            </otherwise>
+        </choose>
+        ORDER BY earningTime DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countHistory" resultType="long">
+        SELECT count(*)
+        FROM earnings_history
+        WHERE user_id = #{userId}
+        <if test="deviceId != null and deviceId != ''">
+            AND device_id = #{deviceId}
+        </if>
+        <if test="earningType != null and earningType != ''">
+            <choose>
+                <when test="earningType == 'INVITE'">
+                    AND earning_type IN ('INVITE', 'INVITE_CPU', 'INVITE_GPU')
+                </when>
+                <when test="earningType == 'GPU'">
+                    AND earning_type LIKE 'GPU%'
+                </when>
+                <otherwise>
+                    AND earning_type = #{earningType}
+                </otherwise>
+            </choose>
+        </if>
+        <if test="startDate != null">
+            AND earning_time >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND earning_time &lt;= #{endDate}
+        </if>
+    </select>
+
+    <select id="countHistoryHourly" resultType="long">
+        SELECT
+        <choose>
+            <when test="groupByEarningType">
+                COUNT(DISTINCT CONCAT(DATE_FORMAT(earning_time, '%Y-%m-%d %H'), '#', earning_type))
+            </when>
+            <otherwise>
+                COUNT(DISTINCT DATE_FORMAT(earning_time, '%Y-%m-%d %H'))
+            </otherwise>
+        </choose>
+        FROM earnings_history
+        WHERE user_id = #{userId}
+        <if test="deviceId != null and deviceId != ''">
+            AND device_id = #{deviceId}
+        </if>
+        <if test="earningType != null and earningType != ''">
+            <choose>
+                <when test="earningType == 'INVITE'">
+                    AND earning_type IN ('INVITE', 'INVITE_CPU', 'INVITE_GPU')
+                </when>
+                <otherwise>
+                    AND earning_type = #{earningType}
+                </otherwise>
+            </choose>
+        </if>
+        <if test="startDate != null">
+            AND earning_time >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND earning_time &lt;= #{endDate}
+        </if>
+    </select>
+
+    <select id="findDailyStats" resultType="com.slb.mining_backend.modules.earnings.vo.DailyStatsVo">
+        SELECT
+        stat_date AS date,
+        total_cal_amount AS calAmount,
+        total_cny_amount AS cnyAmount,
+        cpu_cal_earnings AS cpuEarnings,
+        gpu_cal_earnings AS gpuEarnings
+        FROM daily_earnings_stats
+        WHERE user_id = #{userId}
+        <if test="startDate != null">
+            AND stat_date >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND stat_date &lt;= #{endDate}
+        </if>
+        ORDER BY stat_date DESC
+    </select>
+
+    <select id="findDailyStatsPaginated" resultType="com.slb.mining_backend.modules.earnings.vo.DailyStatsVo">
+        SELECT
+        stat_date AS date,
+        total_cal_amount AS calAmount,
+        total_cny_amount AS cnyAmount,
+        cpu_cal_earnings AS cpuEarnings,
+        gpu_cal_earnings AS gpuEarnings
+        FROM daily_earnings_stats
+        WHERE user_id = #{userId}
+        <if test="startDate != null">
+            AND stat_date >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND stat_date &lt;= #{endDate}
+        </if>
+        ORDER BY stat_date DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countDailyStats" resultType="long">
+        SELECT COUNT(*)
+        FROM daily_earnings_stats
+        WHERE user_id = #{userId}
+        <if test="startDate != null">
+            AND stat_date >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND stat_date &lt;= #{endDate}
+        </if>
+    </select>
+
+    <select id="findDailyStatsByDevicePaginated" resultType="com.slb.mining_backend.modules.earnings.vo.DailyStatsVo">
+        SELECT
+        DATE(h.earning_time) AS date,
+        h.device_id AS deviceId,
+        d.device_name AS deviceName,
+        SUM(h.amount_cal) AS calAmount,
+        SUM(h.amount_cny) AS cnyAmount,
+        SUM(CASE WHEN h.earning_type IN ('CPU', 'POOL', 'AUTO') THEN h.amount_cal ELSE 0 END) AS cpuEarnings,
+        SUM(CASE WHEN h.earning_type LIKE 'GPU%' THEN h.amount_cal ELSE 0 END) AS gpuEarnings
+        FROM earnings_history h
+        LEFT JOIN devices d ON h.device_id = d.id
+        WHERE h.user_id = #{userId}
+          AND h.device_id = #{deviceId}
+          AND (h.earning_type IN ('CPU', 'POOL', 'AUTO') OR h.earning_type LIKE 'GPU%')
+        <if test="startDate != null">
+            AND h.earning_time >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND h.earning_time &lt;= #{endDate}
+        </if>
+        GROUP BY DATE(h.earning_time), h.device_id, d.device_name
+        ORDER BY date DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countDailyStatsByDevice" resultType="long">
+        SELECT COUNT(DISTINCT DATE(h.earning_time))
+        FROM earnings_history h
+        WHERE h.user_id = #{userId}
+          AND h.device_id = #{deviceId}
+          AND (h.earning_type IN ('CPU', 'POOL', 'AUTO') OR h.earning_type LIKE 'GPU%')
+        <if test="startDate != null">
+            AND h.earning_time >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND h.earning_time &lt;= #{endDate}
+        </if>
+    </select>
+
+    <!-- 插入或更新每日统计 -->
+    <insert id="upsertDailyStats">
+        INSERT INTO daily_earnings_stats (
+            user_id, stat_date, total_cal_amount, total_cny_amount, cpu_cal_earnings, gpu_cal_earnings
+        ) VALUES (
+            #{userId}, #{date}, #{amountCal}, #{amountCny},
+            CASE WHEN #{type} IN ('CPU', 'POOL', 'AUTO') THEN #{amountCal} ELSE 0 END,
+            CASE WHEN #{type} LIKE 'GPU%' THEN #{amountCal} ELSE 0 END
+        )
+        ON DUPLICATE KEY UPDATE
+            total_cal_amount = total_cal_amount + VALUES(total_cal_amount),
+            total_cny_amount = total_cny_amount + VALUES(total_cny_amount),
+            cpu_cal_earnings = cpu_cal_earnings + VALUES(cpu_cal_earnings),
+            gpu_cal_earnings = gpu_cal_earnings + VALUES(gpu_cal_earnings)
+    </insert>
+
+    <!-- 累计 CPU 挖矿 CAL 收益 -->
+    <select id="sumCpuCalEarnings" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(cpu_cal_earnings), 0)
+        FROM daily_earnings_stats
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 累计 GPU 挖矿 CAL 收益 -->
+    <select id="sumGpuCalEarnings" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(gpu_cal_earnings), 0)
+        FROM daily_earnings_stats
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 按 earning_type 汇总 CAL 金额 -->
+    <select id="sumAmountCalByType" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(amount_cal), 0)
+        FROM earnings_history
+        WHERE user_id = #{userId}
+          AND earning_type = #{earningType}
+    </select>
+
+    <!-- 按 earning_type 汇总 CNY 金额 -->
+    <select id="sumAmountCnyByType" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(amount_cny), 0)
+        FROM earnings_history
+        WHERE user_id = #{userId}
+          AND earning_type = #{earningType}
+    </select>
+
+    <!-- 按 settleCurrency 汇总 CNY 金额（settleCurrency 由 platform_commissions.currency 推断；无记录默认 CAL） -->
+    <select id="sumAmountCnyBySettleCurrency" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(h.amount_cny), 0)
+        FROM earnings_history h
+        WHERE h.user_id = #{userId}
+          AND COALESCE((
+            SELECT pc.currency
+            FROM platform_commissions pc
+            WHERE pc.source_earning_id = h.id
+            ORDER BY pc.id DESC
+            LIMIT 1
+          ), 'CAL') = #{settleCurrency}
+    </select>
+
+    <!-- 按 earning_type 列表 + settleCurrency 汇总 CNY 金额 -->
+    <select id="sumAmountCnyByTypesAndSettleCurrency" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(h.amount_cny), 0)
+        FROM earnings_history h
+        WHERE h.user_id = #{userId}
+          AND h.earning_type IN
+          <foreach collection="earningTypes" item="t" open="(" separator="," close=")">
+              #{t}
+          </foreach>
+          AND COALESCE((
+            SELECT pc.currency
+            FROM platform_commissions pc
+            WHERE pc.source_earning_id = h.id
+            ORDER BY pc.id DESC
+            LIMIT 1
+          ), 'CAL') = #{settleCurrency}
+    </select>
+
+    <!-- 排行榜查询，使用窗口函数 RANK() -->
+    <select id="findLeaderboard" resultType="com.slb.mining_backend.modules.earnings.vo.LeaderboardVo$RankItem">
+        WITH UserEarnings AS (
+            SELECT
+                user_id,
+                SUM(amount_cal) AS total_cal,
+                SUM(amount_cny) AS total_cny
+            FROM earnings_history
+            WHERE earning_time BETWEEN #{startTime} AND #{endTime}
+            GROUP BY user_id
+        ),
+        DeviceCounts AS (
+            SELECT
+                user_id,
+                COUNT(*) AS device_count
+            FROM devices
+            WHERE is_deleted = 0
+            GROUP BY user_id
+        )
+        SELECT
+            RANK() OVER (ORDER BY ue.total_cal DESC) as `rank`,
+            u.user_name as userName,
+            ue.total_cal as calAmount,
+            ue.total_cny as cnyAmount,
+            COALESCE(dc.device_count, 0) as deviceCount
+        FROM UserEarnings ue
+                 JOIN users u ON ue.user_id = u.id
+                 LEFT JOIN DeviceCounts dc ON dc.user_id = u.id
+        ORDER BY ue.total_cal DESC, ue.user_id ASC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <!-- 查询我的排名 -->
+    <select id="findUserRank" resultType="com.slb.mining_backend.modules.earnings.vo.LeaderboardVo$RankItem">
+        WITH RankedUsers AS (
+            SELECT
+                user_id,
+                RANK() OVER (ORDER BY SUM(amount_cal) DESC) as `rank`,
+                SUM(amount_cal) as total_cal,
+                SUM(amount_cny) as total_cny
+            FROM earnings_history
+            WHERE earning_time BETWEEN #{startTime} AND #{endTime}
+            GROUP BY user_id
+        ),
+        DeviceCounts AS (
+            SELECT
+                user_id,
+                COUNT(*) AS device_count
+            FROM devices
+            WHERE is_deleted = 0
+            GROUP BY user_id
+        )
+        SELECT
+            ru.`rank`,
+            u.user_name as userName,
+            ru.total_cal as calAmount,
+            ru.total_cny as cnyAmount,
+            COALESCE(dc.device_count, 0) as deviceCount
+        FROM RankedUsers ru
+                 JOIN users u ON ru.user_id = u.id
+                 LEFT JOIN DeviceCounts dc ON dc.user_id = u.id
+        WHERE ru.user_id = #{userId}
+    </select>
+
+    <select id="countLeaderboardUsers" resultType="long">
+        SELECT COUNT(DISTINCT user_id)
+        FROM earnings_history
+        WHERE earning_time BETWEEN #{startTime} AND #{endTime}
+    </select>
+
+</mapper>

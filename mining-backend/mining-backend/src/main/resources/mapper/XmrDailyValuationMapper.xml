@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.XmrDailyValuationMapper">
+
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.xmr.entity.XmrDailyValuation" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO xmr_daily_valuation (
+            user_id,
+            worker_id,
+            balance_xmr,
+            frozen_xmr,
+            total_earned_xmr,
+            balance_cny,
+            total_earned_cny,
+            rate,
+            snapshot_date,
+            created_time
+        ) VALUES (
+            #{userId},
+            #{workerId},
+            #{balanceXmr},
+            #{frozenXmr},
+            #{totalEarnedXmr},
+            #{balanceCny},
+            #{totalEarnedCny},
+            #{rate},
+            #{snapshotDate},
+            NOW()
+        )
+    </insert>
+
+</mapper>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.xmr.mapper.AntpoolAccountBalanceMapper">
+
+    <resultMap id="BaseResultMap" type="com.slb.mining_backend.modules.xmr.entity.AntpoolAccountBalance">
+        <id column="id" property="id"/>
+        <result column="account" property="account"/>
+        <result column="coin" property="coin"/>
+        <result column="earn24_hours" property="earn24Hours"/>
+        <result column="earn_total" property="earnTotal"/>
+        <result column="paid_out" property="paidOut"/>
+        <result column="balance" property="balance"/>
+        <result column="settle_time" property="settleTime"/>
+        <result column="fetched_at" property="fetchedAt"/>
+        <result column="created_time" property="createdTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO antpool_account_balance
+        (account, coin, earn24_hours, earn_total, paid_out, balance, settle_time, fetched_at, created_time)
+        VALUES
+        (#{account}, #{coin}, #{earn24Hours}, #{earnTotal}, #{paidOut}, #{balance}, #{settleTime}, #{fetchedAt}, #{createdTime})
+    </insert>
+
+    <select id="selectLatest" resultMap="BaseResultMap">
+        SELECT *
+        FROM antpool_account_balance
+        WHERE account = #{account}
+          AND coin = #{coin}
+        ORDER BY fetched_at DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectLatestBefore" resultMap="BaseResultMap">
+        SELECT *
+        FROM antpool_account_balance
+        WHERE account = #{account}
+          AND coin = #{coin}
+          AND fetched_at &lt;= #{fetchedAt}
+        ORDER BY fetched_at DESC
+        LIMIT 1
+    </select>
+
+</mapper>

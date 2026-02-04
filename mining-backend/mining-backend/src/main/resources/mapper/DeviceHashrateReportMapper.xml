@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.device.mapper.DeviceHashrateReportMapper">
+
+    <!--
+      幂等 upsert：
+      - 唯一键 uk_device_bucket(device_id, bucket_time) 保证同一分钟只有一条；
+      - 网络重试/并发上报会覆盖该分钟桶的最新数据。
+    -->
+    <insert id="upsertMinuteReport" parameterType="com.slb.mining_backend.modules.device.entity.DeviceHashrateReport"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO device_hashrate_reports
+        (user_id, device_id, bucket_time, cpu_hashrate, gpu_hashrate, shares, uptime, version, algorithm, created_time)
+        VALUES
+        (#{userId}, #{deviceId}, #{bucketTime}, #{cpuHashrate}, #{gpuHashrate}, #{shares}, #{uptime}, #{version}, #{algorithm}, NOW())
+        ON DUPLICATE KEY UPDATE
+            user_id = VALUES(user_id),
+            cpu_hashrate = VALUES(cpu_hashrate),
+            gpu_hashrate = VALUES(gpu_hashrate),
+            shares = VALUES(shares),
+            uptime = VALUES(uptime),
+            version = VALUES(version),
+            algorithm = VALUES(algorithm),
+            created_time = NOW()
+    </insert>
+
+    <select id="selectByDeviceSince" resultType="com.slb.mining_backend.modules.device.entity.DeviceHashrateReport">
+        SELECT
+            id,
+            user_id AS userId,
+            device_id AS deviceId,
+            bucket_time AS bucketTime,
+            cpu_hashrate AS cpuHashrate,
+            gpu_hashrate AS gpuHashrate,
+            shares,
+            uptime,
+            version,
+            algorithm,
+            created_time AS createdTime
+        FROM device_hashrate_reports
+        WHERE user_id = #{userId}
+          AND device_id = #{deviceId}
+          AND bucket_time &gt;= #{since}
+        ORDER BY bucket_time ASC
+    </select>
+
+</mapper>
+
+

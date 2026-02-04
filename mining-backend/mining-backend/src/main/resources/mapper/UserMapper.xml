@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.users.mapper.UserMapper">
+
+    <!-- 鍚敤浜岀骇缂撳瓨銆傚墠鎻愭槸 User 绫诲疄鐜颁簡 Serializable 鎺ュ彛銆?-->
+    <cache eviction="LRU" flushInterval="60000" size="512" readOnly="true"/>
+
+    <!--
+      瀹氫箟涓€涓?ResultMap 鏉ユ樉寮忔槧灏勬暟鎹簱鍒楀悕鍒?Java 瀹炰綋绫诲睘鎬с€?      杩欐槸鏈€鍋ュ．鐨勬柟寮忥紝鍙互閬垮厤鍥犲懡鍚嶄笉鍖归厤锛堝 user_name vs userName锛夋垨绫诲瀷闂瀵艰嚧鐨勯敊璇€?    -->
+    <resultMap id="UserResultMap" type="com.slb.mining_backend.modules.users.entity.User">
+        <id property="id" column="id"/>
+        <result property="userName" column="user_name"/>
+        <result property="passwordHash" column="password_hash"/>
+        <result property="salt" column="salt"/>
+        <result property="alipayAccount" column="alipay_account"/>
+        <result property="alipayName" column="alipay_name"/>
+        <result property="alipayAccountUpdatedAt" column="alipay_account_updated_at"/>
+        <result property="inviteCode" column="invite_code"/>
+        <result property="regInto" column="reg_into"/>
+        <result property="calBalance" column="cal_balance"/>
+        <result property="cashBalance" column="cash_balance"/>
+        <result property="totalEarnings" column="total_earnings"/>
+        <result property="totalWithdrawn" column="total_withdrawn"/>
+        <result property="status" column="status"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="phone" column="phone"/>
+        <result property="email" column="email"/>
+        <result property="inviterId" column="inviter_id"/>
+        <result property="frozenCashBalance" column="frozen_cash_balance"/>
+        <result property="role" column="role" />
+        <result property="settlementCurrency" column="settlement_currency"/>
+
+        <!-- XMR 鐩稿叧瀛楁鏄犲皠 -->
+        <result property="xmrBalance" column="xmr_balance"/>
+        <result property="frozenXmr" column="frozen_xmr"/>
+        <result property="totalEarnedXmr" column="total_earned_xmr"/>
+        <result property="statusFrozen" column="status_frozen"/>
+        <result property="workerId" column="worker_id"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id
+        , user_name, password_hash, salt, alipay_account, alipay_name, alipay_account_updated_at, invite_code, inviter_id,
+        reg_into, cal_balance, cash_balance, total_earnings, total_withdrawn, status, create_time, update_time, phone, email, frozen_cash_balance, role, settlement_currency,
+        xmr_balance, frozen_xmr, total_earned_xmr, status_frozen, worker_id
+    </sql>
+
+    <!-- 閫氳繃鐢ㄦ埛鍚嶆煡璇?-->
+    <select id="selectByUserName" resultMap="UserResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM users
+        WHERE user_name = #{userName, jdbcType=VARCHAR}
+    </select>
+
+    <!-- 閫氳繃id鏌ヨ -->
+    <select id="selectById" resultMap="UserResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM users
+        WHERE id = #{id, jdbcType=BIGINT}
+    </select>
+
+    <!-- 鏂板鐢ㄦ埛鏁版嵁 -->
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.users.entity.User" useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT INTO users (user_name, password_hash, salt, alipay_account, alipay_name, alipay_account_updated_at,
+                           invite_code, inviter_id, reg_into, phone, email,
+                           xmr_balance, frozen_xmr, total_earned_xmr, status_frozen, worker_id)
+        VALUES (#{userName}, #{passwordHash}, #{salt}, #{alipayAccount}, #{alipayName}, #{alipayAccountUpdatedAt},
+                #{inviteCode}, #{inviterId}, #{regInto}, #{phone}, #{email},
+                #{xmrBalance}, #{frozenXmr}, #{totalEarnedXmr}, #{statusFrozen}, #{workerId})
+    </insert>
+
+    <!-- 鏇存柊鐢ㄦ埛鏁版嵁 -->
+    <update id="update" parameterType="com.slb.mining_backend.modules.users.entity.User">
+        UPDATE users
+        <set>
+            <if test="passwordHash != null and passwordHash != ''">
+                password_hash = #{passwordHash},
+            </if>
+            <if test="salt != null and salt != ''">
+                salt = #{salt},
+            </if>
+            <if test="alipayAccount != null">
+                alipay_account = #{alipayAccount},
+            </if>
+            <if test="alipayName != null">
+                alipay_name = #{alipayName},
+            </if>
+            <if test="alipayAccountUpdatedAt != null">
+                alipay_account_updated_at = #{alipayAccountUpdatedAt},
+            </if>
+            <if test="phone != null">
+                phone = #{phone},
+            </if>
+            <if test="email != null">
+                email = #{email},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="xmrBalance != null">
+                xmr_balance = #{xmrBalance},
+            </if>
+            <if test="frozenXmr != null">
+                frozen_xmr = #{frozenXmr},
+            </if>
+            <if test="totalEarnedXmr != null">
+                total_earned_xmr = #{totalEarnedXmr},
+            </if>
+            <if test="statusFrozen != null">
+                status_frozen = #{statusFrozen},
+            </if>
+            <if test="workerId != null">
+                worker_id = #{workerId},
+            </if>
+            <if test="settlementCurrency != null">
+                settlement_currency = #{settlementCurrency},
+            </if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!--
+        鏇存柊鐢ㄦ埛 XMR 浣欓鐩稿叧瀛楁鐨勯€氱敤鏂规硶銆?        balanceChange: XMR 浣欓鍙樺寲锛屾鏁颁负澧炲姞锛岃礋鏁颁负鍑忓皯銆?        frozenChange: 鍐荤粨涓殑 XMR 鍙樺寲锛屾鏁颁负澧炲姞锛岃礋鏁颁负鍑忓皯銆?        totalEarnedChange: 绱浜у嚭鍙樺寲锛屾鏁颁负澧炲姞锛岃礋鏁颁负鍑忓皯銆?    -->
+    <update id="updateXmrBalances">
+        UPDATE users
+        SET xmr_balance = xmr_balance + #{balanceChange},
+            frozen_xmr = frozen_xmr + #{frozenChange},
+            total_earned_xmr = total_earned_xmr + #{totalEarnedChange}
+        WHERE id = #{userId}
+    </update>
+
+    <select id="selectByUserEmail" resultMap="UserResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM users
+        WHERE email = #{email, jdbcType=VARCHAR}
+    </select>
+
+    <select id="selectByInviteCode" resultMap="UserResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM users
+        WHERE invite_code = #{inviteCode, jdbcType=VARCHAR}
+        LIMIT 1
+    </select>
+
+    <!-- 通过 Worker ID 查找用户 -->
+    <select id="selectByWorkerId" resultMap="UserResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM users
+        WHERE worker_id = #{workerId, jdbcType=VARCHAR}
+        LIMIT 1
+    </select>
+
+    <!-- 鍘熷瓙鎬у湴鏇存柊鐢ㄦ埛閽卞寘锛氬鍔犱綑棰濆拰绱鏀剁泭 -->
+    <update id="updateUserWallet">
+        UPDATE users
+        SET cal_balance    = cal_balance + #{calAmount},
+            total_earnings = total_earnings + #{calAmount}
+        WHERE id = #{userId}
+    </update>
+
+    <update id="updateCalBalance">
+        UPDATE users
+        SET cal_balance = cal_balance + #{calAmount}
+        WHERE id = #{userId}
+    </update>
+
+    <!--
+    鍘熷瓙鎬у湴鏇存柊鐢ㄦ埛鐜伴噾閽卞寘銆?    cashBalanceChange: 姝ｆ暟澧炲姞鍙敤锛岃礋鏁板噺灏戝彲鐢ㄣ€?    frozenBalanceChange: 姝ｆ暟澧炲姞鍐荤粨锛岃礋鏁板噺灏戝喕缁撱€?    withdrawnChange: 姝ｆ暟澧炲姞绱鎻愮幇銆?    -->
+    <update id="updateCashBalances">
+        UPDATE users
+        SET
+            cash_balance = cash_balance + #{cashBalanceChange},
+            frozen_cash_balance = frozen_cash_balance + #{frozenBalanceChange},
+            total_withdrawn = total_withdrawn + #{withdrawnChange}
+        WHERE
+            id = #{userId}
+        AND
+            cash_balance + #{cashBalanceChange} >= 0
+    </update>
+
+    <update id="updateSettlementCurrency">
+        UPDATE users
+        SET settlement_currency = #{currency},
+            update_time = NOW()
+        WHERE id = #{userId}
+    </update>
+
+    <select id="countTotalUsers" resultType="long">
+        SELECT COUNT(*) FROM users;
+    </select>
+
+    <select id="countActiveUsers" resultType="long">
+        SELECT COUNT(*) FROM users WHERE status = 1
+    </select>
+
+    <select id="sumTotalCalBalance" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(cal_balance), 0) FROM users
+    </select>
+
+    <select id="sumTotalCnyBalance" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(cash_balance + COALESCE(frozen_cash_balance, 0)), 0) FROM users
+    </select>
+
+    <select id="selectAllForXmr" resultMap="UserResultMap">
+        SELECT id, user_name, xmr_balance, frozen_xmr, total_earned_xmr, worker_id, status_frozen
+        FROM users
+    </select>
+
+    <select id="selectByWorkerIds" resultType="com.slb.mining_backend.modules.users.dto.WorkerUserBinding">
+        SELECT id AS userId,
+               worker_id AS workerId
+        FROM users
+        WHERE worker_id IN
+        <foreach collection="workerIds" item="workerId" open="(" separator="," close=")">
+            #{workerId}
+        </foreach>
+    </select>
+
+    <!--
+      锁定用户行（FOR UPDATE），用于同一用户的关键资金操作互斥（例如提现申请防并发）。
+      注意：需要在 @Transactional 事务内调用才会生效。
+    -->
+    <select id="lockByIdForUpdate" resultType="java.lang.Long">
+        SELECT id
+        FROM users
+        WHERE id = #{id}
+        FOR UPDATE
+    </select>
+
+    <select id="selectActiveWorkerIds" resultType="string">
+        SELECT worker_id
+        FROM users
+        WHERE worker_id IS NOT NULL
+          AND status = 1
+    </select>
+</mapper>
+

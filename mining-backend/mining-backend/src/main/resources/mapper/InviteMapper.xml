@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.invite.mapper.InviteMapper">
+    
+    <select id="countInviteesByUserId" resultType="long">
+        SELECT COUNT(*)
+        FROM users
+        WHERE inviter_id = #{userId}
+    </select>
+    
+    <select id="countActiveInviteesByUserId" resultType="long">
+        SELECT COUNT(DISTINCT u.id)
+        FROM users u
+                 INNER JOIN devices d ON u.id = d.user_id
+        WHERE u.inviter_id = #{userId}
+          AND d.status = 1
+          AND d.is_deleted = 0
+    </select>
+    
+    <select id="sumTotalCommissionByUserId" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(commission_amount), 0)
+        FROM commission_records
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="sumCommissionByUserIdAndDateRange" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(commission_amount), 0)
+        FROM commission_records
+        WHERE user_id = #{userId}
+          AND create_time <![CDATA[>=]]> #{startTime}
+          AND create_time <![CDATA[<]]> #{endTime}
+    </select>
+
+    <select id="findInviteRecordsPaginated" resultType="com.slb.mining_backend.modules.invite.vo.InviteRecordsVo$RecordItem">
+        SELECT
+            u.id AS inviteeUid,
+            u.user_name AS inviteeName,
+            u.create_time AS createTime,
+            (SELECT COUNT(*) FROM devices d WHERE d.user_id = u.id AND d.is_deleted = 0) AS deviceCount,
+            (SELECT COALESCE(SUM(cr.commission_amount), 0) FROM commission_records cr WHERE cr.invitee_id = u.id AND cr.user_id = #{userId}) AS commissionEarned
+        FROM
+            users u
+        WHERE
+            u.inviter_id = #{userId}
+        ORDER BY
+            u.create_time DESC
+            LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="sumTotalInvitationCommissionByDateRange" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(commission_amount), 0)
+        FROM commission_records
+        WHERE create_time <![CDATA[>=]]> #{startTime}
+          AND create_time <![CDATA[<]]> #{endTime}
+    </select>
+
+    <select id="findInviteCommissionLeaderboard" resultType="com.slb.mining_backend.modules.invite.vo.InviteLeaderboardVo$Item">
+        SELECT
+            cr.user_id AS userId,
+            u.user_name AS userName,
+            COALESCE(SUM(cr.commission_amount), 0) AS totalCommission,
+            COUNT(DISTINCT cr.invitee_id) AS inviteeCount
+        FROM commission_records cr
+        INNER JOIN users u ON u.id = cr.user_id
+        <where>
+            u.status = 1
+            <if test="startTime != null and startTime != ''">
+                AND cr.create_time <![CDATA[>=]]> #{startTime}
+            </if>
+            <if test="endTime != null and endTime != ''">
+                AND cr.create_time <![CDATA[<]]> #{endTime}
+            </if>
+        </where>
+        GROUP BY cr.user_id, u.user_name
+        ORDER BY totalCommission DESC, inviteeCount DESC, cr.user_id ASC
+        LIMIT #{limit}
+    </select>
+</mapper>

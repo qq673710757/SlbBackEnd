@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.admin.mapper.AdminEarningsIncrementMapper">
+
+    <select id="countDistinctDays" resultType="long">
+        SELECT COUNT(DISTINCT day)
+        FROM (
+            SELECT DATE(window_start) AS day
+            FROM f2pool_payhash_hourly_settlements
+            WHERE status = 'SUCCESS'
+            <if test="startTime != null">
+                AND window_start <![CDATA[>=]]> #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND window_start <![CDATA[<]]> #{endTime}
+            </if>
+            UNION
+            SELECT DATE(window_start) AS day
+            FROM antpool_payhash_hourly_settlements
+            WHERE status = 'SUCCESS'
+            <if test="startTime != null">
+                AND window_start <![CDATA[>=]]> #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND window_start <![CDATA[<]]> #{endTime}
+            </if>
+        ) t
+    </select>
+
+    <select id="listDistinctDays" resultType="java.time.LocalDate">
+        SELECT day
+        FROM (
+            SELECT DATE(window_start) AS day
+            FROM f2pool_payhash_hourly_settlements
+            WHERE status = 'SUCCESS'
+            <if test="startTime != null">
+                AND window_start <![CDATA[>=]]> #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND window_start <![CDATA[<]]> #{endTime}
+            </if>
+            UNION
+            SELECT DATE(window_start) AS day
+            FROM antpool_payhash_hourly_settlements
+            WHERE status = 'SUCCESS'
+            <if test="startTime != null">
+                AND window_start <![CDATA[>=]]> #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND window_start <![CDATA[<]]> #{endTime}
+            </if>
+        ) t
+        ORDER BY day DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="listF2PoolDailyByDays" resultType="com.slb.mining_backend.modules.admin.vo.AdminEarningsIncrementRow">
+        SELECT
+            DATE(window_start) AS day,
+            coin AS coin,
+            COALESCE(SUM(total_coin), 0) AS totalCoin,
+            COALESCE(SUM(total_cal), 0) AS totalCal,
+            COALESCE(SUM(COALESCE(cpu_total_cal, 0) + COALESCE(gpu_cfx_total_cal, 0) + COALESCE(gpu_rvn_total_cal, 0)), 0) AS userCal,
+            MAX(updated_time) AS updatedTime
+        FROM f2pool_payhash_hourly_settlements
+        WHERE status = 'SUCCESS'
+          AND DATE(window_start) IN
+        <foreach collection="days" item="day" open="(" separator="," close=")">
+            #{day}
+        </foreach>
+        GROUP BY DATE(window_start), coin
+    </select>
+
+    <select id="listAntpoolDailyByDays" resultType="com.slb.mining_backend.modules.admin.vo.AdminEarningsIncrementRow">
+        SELECT
+            DATE(window_start) AS day,
+            coin AS coin,
+            COALESCE(SUM(total_coin), 0) AS totalCoin,
+            COALESCE(SUM(total_cal), 0) AS totalCal,
+            COALESCE(SUM(COALESCE(cpu_total_cal, 0) + COALESCE(gpu_cfx_total_cal, 0) + COALESCE(gpu_rvn_total_cal, 0)), 0) AS userCal,
+            MAX(updated_time) AS updatedTime
+        FROM antpool_payhash_hourly_settlements
+        WHERE status = 'SUCCESS'
+          AND DATE(window_start) IN
+        <foreach collection="days" item="day" open="(" separator="," close=")">
+            #{day}
+        </foreach>
+        GROUP BY DATE(window_start), coin
+    </select>
+</mapper>

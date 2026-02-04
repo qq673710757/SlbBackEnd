@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.device.mapper.DeviceMapper">
+
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.device.entity.Device">
+        INSERT INTO devices (id, user_id, device_name, device_type, device_info, device_secret, status,
+                             cpu_hashrate, gpu_hashrate, gpu_hashrate_octopus, gpu_hashrate_kawpow,
+                             gpu_daily_income_cny, gpu_daily_income_cny_octopus, gpu_daily_income_cny_kawpow,
+                             last_online_time, is_deleted, create_time, update_time)
+        VALUES (#{id}, #{userId}, #{deviceName}, #{deviceType}, #{deviceInfo}, #{deviceSecret}, #{status},
+                #{cpuHashrate}, #{gpuHashrate}, #{gpuHashrateOctopus}, #{gpuHashrateKawpow},
+                #{gpuDailyIncomeCny}, #{gpuDailyIncomeCnyOctopus}, #{gpuDailyIncomeCnyKawpow},
+                #{lastOnlineTime}, #{isDeleted}, NOW(), NOW())
+    </insert>
+
+    <select id="findById" resultType="com.slb.mining_backend.modules.device.entity.Device">
+        SELECT * FROM devices WHERE id = #{id}
+    </select>
+
+    <select id="findByIdAndUserId" resultType="com.slb.mining_backend.modules.device.entity.Device">
+        SELECT * FROM devices WHERE id = #{id} AND user_id = #{userId} AND is_deleted = 0
+    </select>
+
+    <update id="update" parameterType="com.slb.mining_backend.modules.device.entity.Device">
+        UPDATE devices
+        <set>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="deviceName != null">device_name = #{deviceName},</if>
+            <if test="deviceType != null">device_type = #{deviceType},</if>
+            <if test="deviceInfo != null">device_info = #{deviceInfo},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="cpuHashrate != null">cpu_hashrate = #{cpuHashrate},</if>
+            <if test="gpuHashrate != null">gpu_hashrate = #{gpuHashrate},</if>
+            <if test="gpuHashrateOctopus != null">gpu_hashrate_octopus = #{gpuHashrateOctopus},</if>
+            <if test="gpuHashrateKawpow != null">gpu_hashrate_kawpow = #{gpuHashrateKawpow},</if>
+            <if test="gpuDailyIncomeCny != null">gpu_daily_income_cny = #{gpuDailyIncomeCny},</if>
+            <if test="gpuDailyIncomeCnyOctopus != null">gpu_daily_income_cny_octopus = #{gpuDailyIncomeCnyOctopus},</if>
+            <if test="gpuDailyIncomeCnyKawpow != null">gpu_daily_income_cny_kawpow = #{gpuDailyIncomeCnyKawpow},</if>
+            <if test="lastOnlineTime != null">last_online_time = #{lastOnlineTime},</if>
+            <if test="deviceSecret != null">device_secret = #{deviceSecret},</if>
+            <if test="isDeleted != null">is_deleted = #{isDeleted},</if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <select id="countByUserIdAndStatus" resultType="long">
+        SELECT count(*) FROM devices
+        WHERE user_id = #{userId} AND is_deleted = 0
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+    </select>
+
+    <select id="findByUserIdAndStatusPaginated" resultType="com.slb.mining_backend.modules.device.entity.Device">
+        SELECT id, device_name, device_type, status,
+               cpu_hashrate, gpu_hashrate, gpu_hashrate_octopus, gpu_hashrate_kawpow,
+               gpu_daily_income_cny, gpu_daily_income_cny_octopus, gpu_daily_income_cny_kawpow,
+               last_online_time, create_time
+        FROM devices
+        WHERE user_id = #{userId} AND is_deleted = 0
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+        ORDER BY
+        <choose>
+            <when test="sortBy == 'deviceName'">device_name</when>
+            <when test="sortBy == 'lastOnlineTime'">last_online_time</when>
+            <otherwise>create_time</otherwise>
+        </choose>
+        <choose>
+            <when test="orderBy == 'asc'">ASC</when>
+            <otherwise>DESC</otherwise>
+        </choose>
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countTotalDevices" resultType="long">
+        SELECT count(*) FROM devices WHERE is_deleted = 0
+    </select>
+
+    <select id="countOnlineDevices" resultType="long">
+        SELECT count(*) FROM devices WHERE status = 1 AND is_deleted = 0
+    </select>
+
+    <select id="sumTotalCpuHashrate" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(cpu_hashrate), 0) FROM devices WHERE status = 1 AND is_deleted = 0
+    </select>
+
+    <select id="sumTotalGpuHashrate" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(gpu_hashrate), 0) FROM devices WHERE status = 1 AND is_deleted = 0
+    </select>
+
+    <select id="sumTotalGpuHashrateOctopus" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(gpu_hashrate_octopus), 0) FROM devices WHERE status = 1 AND is_deleted = 0
+    </select>
+
+    <select id="sumTotalGpuHashrateKawpow" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(gpu_hashrate_kawpow), 0) FROM devices WHERE status = 1 AND is_deleted = 0
+    </select>
+
+    <select id="sumCpuHashrateByUserId" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(cpu_hashrate), 0)
+        FROM devices
+        WHERE user_id = #{userId}
+          AND status = 1
+          AND is_deleted = 0
+    </select>
+
+    <select id="sumGpuHashrateByUserId" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(gpu_hashrate), 0)
+        FROM devices
+        WHERE user_id = #{userId}
+          AND status = 1
+          AND is_deleted = 0
+    </select>
+
+    <select id="sumGpuHashrateOctopusByUserId" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(gpu_hashrate_octopus), 0)
+        FROM devices
+        WHERE user_id = #{userId}
+          AND status = 1
+          AND is_deleted = 0
+    </select>
+
+    <select id="sumGpuHashrateKawpowByUserId" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(gpu_hashrate_kawpow), 0)
+        FROM devices
+        WHERE user_id = #{userId}
+          AND status = 1
+          AND is_deleted = 0
+    </select>
+
+    <select id="sumHashrateByUser" resultType="com.slb.mining_backend.modules.device.vo.UserHashrateSummaryVo">
+        SELECT
+            user_id AS userId,
+            COALESCE(SUM(cpu_hashrate), 0) AS cpuHashrate,
+            COALESCE(SUM(gpu_hashrate), 0) AS gpuHashrate
+        FROM devices
+        WHERE status = 1
+          AND is_deleted = 0
+        GROUP BY user_id
+    </select>
+
+    <select id="sumHashrateByUserIds" resultType="com.slb.mining_backend.modules.device.vo.UserHashrateSummaryVo">
+        SELECT
+            user_id AS userId,
+            COALESCE(SUM(cpu_hashrate), 0) AS cpuHashrate,
+            COALESCE(SUM(gpu_hashrate), 0) AS gpuHashrate
+        FROM devices
+        WHERE status = 1
+          AND is_deleted = 0
+          AND user_id IN
+        <foreach collection="userIds" item="userId" open="(" separator="," close=")">
+            #{userId}
+        </foreach>
+        GROUP BY user_id
+    </select>
+
+    <select id="sumGpuHashrateOctopusByUser" resultType="com.slb.mining_backend.modules.device.vo.UserHashrateSummaryVo">
+        SELECT
+            user_id AS userId,
+            0 AS cpuHashrate,
+            COALESCE(SUM(gpu_hashrate_octopus), 0) AS gpuHashrate
+        FROM devices
+        WHERE status = 1
+          AND is_deleted = 0
+        GROUP BY user_id
+    </select>
+
+    <select id="sumGpuHashrateKawpowByUser" resultType="com.slb.mining_backend.modules.device.vo.UserHashrateSummaryVo">
+        SELECT
+            user_id AS userId,
+            0 AS cpuHashrate,
+            COALESCE(SUM(gpu_hashrate_kawpow), 0) AS gpuHashrate
+        FROM devices
+        WHERE status = 1
+          AND is_deleted = 0
+        GROUP BY user_id
+    </select>
+
+    <update id="markDevicesOffline">
+        UPDATE devices
+        SET status = 0,
+            cpu_hashrate = 0,
+            gpu_hashrate = 0,
+            gpu_hashrate_octopus = 0,
+            gpu_hashrate_kawpow = 0,
+            gpu_daily_income_cny = 0,
+            gpu_daily_income_cny_octopus = 0,
+            gpu_daily_income_cny_kawpow = 0,
+            update_time = NOW()
+        WHERE is_deleted = 0
+          AND status = 1
+          AND (last_online_time IS NULL OR last_online_time &lt; #{cutoffTime})
+    </update>
+
+    <select id="countAdminDevices" resultType="long">
+        SELECT COUNT(*)
+        FROM devices d
+        <where>
+            d.is_deleted = 0
+            <if test="ownerUid != null">
+                AND d.user_id = #{ownerUid}
+            </if>
+            <if test="status != null">
+                AND d.status = #{status}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (d.id LIKE CONCAT('%', #{keyword}, '%')
+                    OR d.device_name LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+    </select>
+
+    <select id="findAdminDevicesPaginated" resultType="com.slb.mining_backend.modules.admin.vo.AdminDeviceListItemVo">
+        SELECT
+            d.id AS deviceId,
+            d.device_name AS deviceName,
+            d.user_id AS ownerUid,
+            u.user_name AS ownerName,
+            d.cpu_hashrate AS cpuHashrate,
+            d.gpu_hashrate_octopus AS cfxHashrate,
+            d.gpu_hashrate_kawpow AS rvnHashrate,
+            d.status AS statusCode,
+            d.create_time AS createdAt
+        FROM devices d
+                 LEFT JOIN users u ON d.user_id = u.id
+        <where>
+            d.is_deleted = 0
+            <if test="ownerUid != null">
+                AND d.user_id = #{ownerUid}
+            </if>
+            <if test="status != null">
+                AND d.status = #{status}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (d.id LIKE CONCAT('%', #{keyword}, '%')
+                    OR d.device_name LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY d.create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+</mapper>

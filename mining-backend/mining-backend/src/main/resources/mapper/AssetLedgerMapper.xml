@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.asset.mapper.AssetLedgerMapper">
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.asset.entity.AssetLedger" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO asset_ledger (user_id, currency, amount_xmr, amount_cal, amount_cny, ref_type, ref_id, tx_hash, remark, event_time, created_time)
+        VALUES (#{userId}, #{currency}, #{amountXmr}, #{amountCal}, #{amountCny}, #{refType}, #{refId}, #{txHash}, #{remark}, #{eventTime}, NOW())
+    </insert>
+
+    <!-- 幂等写入：依赖数据库唯一键（例如 uk_ledger_dedupe），重复时忽略 -->
+    <insert id="insertIgnore" parameterType="com.slb.mining_backend.modules.asset.entity.AssetLedger" useGeneratedKeys="true" keyProperty="id">
+        INSERT IGNORE INTO asset_ledger (user_id, currency, amount_xmr, amount_cal, amount_cny, ref_type, ref_id, tx_hash, remark, event_time, created_time)
+        VALUES (#{userId}, #{currency}, #{amountXmr}, #{amountCal}, #{amountCny}, #{refType}, #{refId}, #{txHash}, #{remark}, #{eventTime}, NOW())
+    </insert>
+
+    <select id="sumAmountCalByUserIdAndRefTypeAndRemarkPrefixBetween" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(amount_cal), 0)
+        FROM asset_ledger
+        WHERE user_id = #{userId}
+          AND ref_type = #{refType}
+          AND remark LIKE CONCAT(#{remarkPrefix}, '%')
+          AND created_time <![CDATA[>=]]> #{start}
+          AND created_time <![CDATA[<]]> #{end}
+    </select>
+
+    <select id="countByUserIdAndRefTypeAndRemarkPrefix" resultType="int">
+        SELECT COUNT(1)
+        FROM asset_ledger
+        WHERE user_id = #{userId}
+          AND ref_type = #{refType}
+          AND remark LIKE CONCAT(#{remarkPrefix}, '%')
+    </select>
+</mapper>
