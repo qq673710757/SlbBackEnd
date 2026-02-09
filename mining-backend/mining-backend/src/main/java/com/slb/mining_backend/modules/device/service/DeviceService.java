@@ -803,6 +803,9 @@ public class DeviceService {
             applyDeviceGpuAlgorithmStats(device, totalGpuHashrate, BigDecimal.ZERO);
         } else if (isRvnAlgorithm(algorithm)) {
             applyDeviceGpuAlgorithmStats(device, BigDecimal.ZERO, totalGpuHashrate);
+        } else {
+            // 如果算法未知或不匹配，清零两个算法特定的算力字段
+            applyDeviceGpuAlgorithmStats(device, BigDecimal.ZERO, BigDecimal.ZERO);
         }
     }
 

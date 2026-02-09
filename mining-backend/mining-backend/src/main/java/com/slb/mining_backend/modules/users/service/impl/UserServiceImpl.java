@@ -218,7 +218,7 @@ public class UserServiceImpl implements UserService {
         BigDecimal unpaidXmr = safe(statsOptional.map(XmrPoolStats::getUnpaidXmr).orElse(null));
         BigDecimal paidXmrTotal = safe(statsOptional.map(XmrPoolStats::getPaidXmrTotal).orElse(null));
 
-        // totalEarnedXmr：优先使用矿池统计（paid + unpaid）作为“累计产出”口径；
+        // totalEarnedXmr：优先使用矿池统计（paid + unpaid）作为"累计产出"口径；
         // users.total_earned_xmr 当前代码路径中几乎不更新，容易长期为 0，导致 profile 展示异常。
         BigDecimal totalEarnedXmr = paidXmrTotal.add(unpaidXmr);
 
@@ -333,8 +333,42 @@ public class UserServiceImpl implements UserService {
         }
 
         String code = verificationCodeService.generateAndCacheCode(email);
-        String subject = "您的验证码";
-        String text = "您好，您的验证码是：" + code + "。该验证码在 10 分钟内有效，请尽快完成验证。";
+        String subject = "【算力宝】您的验证码";
+        
+        // 根据不同类型定制邮件内容
+        String actionText;
+        switch (type) {
+            case "REGISTER":
+                actionText = "注册账号";
+                break;
+            case "LOGIN":
+                actionText = "登录账号";
+                break;
+            case "RESET_PASSWORD":
+                actionText = "重置密码";
+                break;
+            case "ALIPAY_UPDATE":
+                actionText = "修改支付宝账号";
+                break;
+            default:
+                actionText = "验证身份";
+        }
+        
+        String text = String.format(
+            "尊敬的用户，您好！\n\n" +
+            "您正在进行【%s】操作，验证码为：\n\n" +
+            "    %s\n\n" +
+            "验证码有效期为 10 分钟，请尽快完成验证。\n\n" +
+            "温馨提示：\n" +
+            "• 请勿将验证码透露给他人\n" +
+            "• 如非本人操作，请忽略此邮件\n" +
+            "• 如有疑问，请联系客服\n\n" +
+            "——————————————————————\n" +
+            "算力宝团队\n" +
+            "让算力创造价值",
+            actionText, code
+        );
+        
         emailService.sendEmail(email, subject, text);
     }
 

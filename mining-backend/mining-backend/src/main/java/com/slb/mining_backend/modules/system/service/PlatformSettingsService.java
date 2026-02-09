@@ -25,16 +25,26 @@ public class PlatformSettingsService {
     }
 
     public PlatformCommissionRate getCommissionRateSetting() {
-        Optional<PlatformCommissionRate> current = commissionRateMapper.selectCurrent();
-        if (current.isPresent()) {
-            return current.get();
+        try {
+            Optional<PlatformCommissionRate> current = commissionRateMapper.selectCurrent();
+            if (current.isPresent()) {
+                return current.get();
+            }
+            // 表存在但无数据，尝试插入默认值
+            PlatformCommissionRate fallback = new PlatformCommissionRate();
+            fallback.setId(1L);
+            fallback.setRatePercent(toPercent(defaultCommissionRate));
+            fallback.setUpdatedBy("system");
+            commissionRateMapper.upsert(fallback);
+            return commissionRateMapper.selectCurrent().orElse(fallback);
+        } catch (Exception e) {
+            // 表不存在或其他数据库错误，使用配置文件中的默认值
+            PlatformCommissionRate fallback = new PlatformCommissionRate();
+            fallback.setId(1L);
+            fallback.setRatePercent(toPercent(defaultCommissionRate));
+            fallback.setUpdatedBy("system");
+            return fallback;
         }
-        PlatformCommissionRate fallback = new PlatformCommissionRate();
-        fallback.setId(1L);
-        fallback.setRatePercent(toPercent(defaultCommissionRate));
-        fallback.setUpdatedBy("system");
-        commissionRateMapper.upsert(fallback);
-        return commissionRateMapper.selectCurrent().orElse(fallback);
     }
 
     public PlatformCommissionRate updateCommissionRate(BigDecimal ratePercent, String updatedBy) {
