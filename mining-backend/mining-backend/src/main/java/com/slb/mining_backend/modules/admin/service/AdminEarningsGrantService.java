@@ -1,6 +1,7 @@
 package com.slb.mining_backend.modules.admin.service;
 
 import com.slb.mining_backend.common.vo.PageVo;
+import com.slb.mining_backend.modules.admin.vo.EarningsGrantDetailVo;
 import com.slb.mining_backend.modules.admin.vo.EarningsGrantVo;
 import com.slb.mining_backend.modules.admin.mapper.AdminEarningsIncrementMapper;
 import com.slb.mining_backend.modules.admin.vo.AdminEarningsIncrementRow;
@@ -155,6 +156,36 @@ public class AdminEarningsGrantService {
 
     private BigDecimal safe(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    /**
+     * 查询发放明细列表（每一笔发放记录）
+     */
+    public PageVo<EarningsGrantDetailVo> listGrantDetails(int page, int size, LocalDate startDate, LocalDate endDate, String coin, String poolSource) {
+        LocalDateTime startTime = startDate != null ? startDate.atStartOfDay() : null;
+        LocalDateTime endTime = endDate != null ? endDate.plusDays(1).atStartOfDay() : null;
+        
+        // 获取 admin 用户 ID（用于区分平台抽成）
+        Long adminUserId = 1L; // 可以从配置中读取
+        
+        // 统计总记录数
+        long total = incrementMapper.countPayoutsByTxHash(startTime, endTime, coin, poolSource, adminUserId);
+        if (total <= 0) {
+            return new PageVo<>(0L, page, size, List.of());
+        }
+        
+        int offset = Math.max(0, (page - 1) * size);
+        
+        // 查询发放明细列表
+        List<EarningsGrantDetailVo> list = incrementMapper.listPayoutsByTxHash(
+            startTime, endTime, coin, poolSource, adminUserId, offset, size
+        );
+        
+        if (list == null) {
+            list = List.of();
+        }
+        
+        return new PageVo<>(total, page, size, list);
     }
 
     private enum CoinType {

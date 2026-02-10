@@ -4,6 +4,7 @@ import com.slb.mining_backend.common.api.ApiResponse;
 import com.slb.mining_backend.common.exception.BizException;
 import com.slb.mining_backend.common.vo.PageVo;
 import com.slb.mining_backend.modules.admin.service.AdminEarningsGrantService;
+import com.slb.mining_backend.modules.admin.vo.EarningsGrantDetailVo;
 import com.slb.mining_backend.modules.admin.vo.EarningsGrantVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -47,6 +48,26 @@ public class AdminEarningsController {
         LocalDate start = parseDate(dateStart, "dateStart");
         LocalDate end = parseDate(dateEnd, "dateEnd");
         return ApiResponse.ok(grantService.listGrants(page, size, start, end));
+    }
+
+    @GetMapping("/grant-details")
+    @Operation(summary = "收益发放明细（每一笔发放记录）")
+    public ApiResponse<PageVo<EarningsGrantDetailVo>> listGrantDetails(
+            @Parameter(description = "页码，从 1 开始", example = "1")
+            @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页数量", example = "20")
+            @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "开始日期（yyyy-MM-dd）", example = "2026-02-01")
+            @RequestParam(required = false) String dateStart,
+            @Parameter(description = "结束日期（yyyy-MM-dd）", example = "2026-02-03")
+            @RequestParam(required = false) String dateEnd,
+            @Parameter(description = "币种筛选（XMR/CFX/RVN）", example = "XMR")
+            @RequestParam(required = false) String coin,
+            @Parameter(description = "矿池来源（C3POOL/F2POOL/ANTPOOL）", example = "C3POOL")
+            @RequestParam(required = false) String poolSource) {
+        LocalDate start = parseDate(dateStart, "dateStart");
+        LocalDate end = parseDate(dateEnd, "dateEnd");
+        return ApiResponse.ok(grantService.listGrantDetails(page, size, start, end, coin, poolSource));
     }
 
     private LocalDate parseDate(String value, String field) {

@@ -87,4 +87,194 @@
         </foreach>
         GROUP BY DATE(window_start), coin
     </select>
+
+    <!-- 统计发放明细记录总数（C3Pool 按 settled_time 分组，其他按 txHash 分组） -->
+    <select id="countPayoutsByTxHash" resultType="long">
+        SELECT COUNT(*)
+        FROM (
+            -- C3Pool: 按 settled_time 分组
+            SELECT COALESCE(w.settled_time, al.event_time) AS group_key
+            FROM asset_ledger al
+            LEFT JOIN xmr_wallet_incoming w ON al.tx_hash = w.tx_hash
+            WHERE (al.ref_type = 'mining_payout' OR al.ref_type = 'bonus')
+              AND al.tx_hash IS NOT NULL
+              AND al.tx_hash != ''
+              AND (al.tx_hash LIKE 'c3pool:%' OR al.tx_hash LIKE 'xmr:%')
+            <if test="startTime != null">
+                AND al.event_time <![CDATA[>=]]> #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND al.event_time <![CDATA[<]]> #{endTime}
+            </if>
+            <if test="coin != null and coin != '' and coin != 'XMR'">
+                AND 1=0
+            </if>
+            <if test="poolSource != null and poolSource != '' and poolSource != 'C3POOL'">
+                AND 1=0
+            </if>
+            GROUP BY COALESCE(w.settled_time, al.event_time)
+            
+            UNION ALL
+            
+            -- F2Pool/Antpool: 按 txHash 分组
+            SELECT al.tx_hash AS group_key
+            FROM asset_ledger al
+            WHERE (al.ref_type = 'mining_payout' OR al.ref_type = 'bonus')
+              AND al.tx_hash IS NOT NULL
+              AND al.tx_hash != ''
+              AND al.tx_hash NOT LIKE 'c3pool:%'
+              AND al.tx_hash NOT LIKE 'xmr:%'
+            <if test="startTime != null">
+                AND al.event_time <![CDATA[>=]]> #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND al.event_time <![CDATA[<]]> #{endTime}
+            </if>
+            <if test="coin != null and coin != ''">
+                <choose>
+                    <when test="coin == 'XMR'">
+                        AND 1=0
+                    </when>
+                    <when test="coin == 'CFX'">
+                        AND (al.tx_hash LIKE 'f2pool:%conflux%' OR al.tx_hash LIKE 'f2pool:%cfx%')
+                    </when>
+                    <when test="coin == 'RVN'">
+                        AND (al.tx_hash LIKE 'antpool:%rvn%' OR al.tx_hash LIKE 'antpool:%ravencoin%')
+                    </when>
+                </choose>
+            </if>
+            <if test="poolSource != null and poolSource != ''">
+                <choose>
+                    <when test="poolSource == 'C3POOL'">
+                        AND 1=0
+                    </when>
+                    <when test="poolSource == 'F2POOL'">
+                        AND al.tx_hash LIKE 'f2pool:%'
+                    </when>
+                    <when test="poolSource == 'ANTPOOL'">
+                        AND al.tx_hash LIKE 'antpool:%'
+                    </when>
+                </choose>
+            </if>
+            GROUP BY al.tx_hash
+        ) t
+    </select>
+
+    <!-- 查询发放明细列表（C3Pool 按 settled_time 分组，其他按 txHash 分组） -->
+    <select id="listPayoutsByTxHash" resultType="com.slb.mining_backend.modules.admin.vo.EarningsGrantDetailVo">
+        SELECT * FROM (
+            -- C3Pool: 按 settled_time 分组，合并 txHash
+            SELECT
+                GROUP_CONCAT(DISTINCT SUBSTRING(al.tx_hash, 8) ORDER BY al.tx_hash SEPARATOR ',') AS txHash,
+                'C3POOL' AS poolSource,
+                'XMR' AS coin,
+                COALESCE(MAX(w.settled_time), MAX(al.event_time)) AS payoutTime,
+                SUM(CASE WHEN al.user_id != #{adminUserId} THEN COALESCE(al.amount_xmr, 0) ELSE 0 END) AS userTotalXmr,
+                SUM(CASE WHEN al.user_id != #{adminUserId} THEN COALESCE(al.amount_cal, 0) ELSE 0 END) AS userTotalCal,
+                SUM(CASE WHEN al.user_id != #{adminUserId} THEN COALESCE(al.amount_cny, 0) ELSE 0 END) AS userTotalCny,
+                SUM(CASE WHEN al.user_id = #{adminUserId} THEN COALESCE(al.amount_xmr, 0) ELSE 0 END) AS platformXmr,
+                SUM(CASE WHEN al.user_id = #{adminUserId} THEN COALESCE(al.amount_cal, 0) ELSE 0 END) AS platformCal,
+                SUM(CASE WHEN al.user_id = #{adminUserId} THEN COALESCE(al.amount_cny, 0) ELSE 0 END) AS platformCny,
+                SUM(COALESCE(al.amount_xmr, 0)) AS totalXmr,
+                SUM(COALESCE(al.amount_cal, 0)) AS totalCal,
+                SUM(COALESCE(al.amount_cny, 0)) AS totalCny,
+                COUNT(DISTINCT CASE WHEN al.user_id != #{adminUserId} THEN al.user_id END) AS userCount,
+                SUM(DISTINCT COALESCE(w.amount_xmr, 0)) AS totalCoin
+            FROM asset_ledger al
+            LEFT JOIN xmr_wallet_incoming w ON al.tx_hash = w.tx_hash
+            WHERE (al.ref_type = 'mining_payout' OR al.ref_type = 'bonus')
+              AND al.tx_hash IS NOT NULL
+              AND al.tx_hash != ''
+              AND (al.tx_hash LIKE 'c3pool:%' OR al.tx_hash LIKE 'xmr:%')
+            <if test="startTime != null">
+                AND al.event_time <![CDATA[>=]]> #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND al.event_time <![CDATA[<]]> #{endTime}
+            </if>
+            <if test="coin != null and coin != '' and coin != 'XMR'">
+                AND 1=0
+            </if>
+            <if test="poolSource != null and poolSource != '' and poolSource != 'C3POOL'">
+                AND 1=0
+            </if>
+            GROUP BY COALESCE(w.settled_time, al.event_time)
+            
+            UNION ALL
+            
+            -- F2Pool/Antpool: 按 txHash 分组
+            SELECT
+                al.tx_hash AS txHash,
+                CASE
+                    WHEN al.tx_hash LIKE 'f2pool:%' THEN 'F2POOL'
+                    WHEN al.tx_hash LIKE 'antpool:%' THEN 'ANTPOOL'
+                    ELSE 'UNKNOWN'
+                END AS poolSource,
+                CASE
+                    WHEN al.tx_hash LIKE '%conflux%' OR al.tx_hash LIKE '%cfx%' THEN 'CFX'
+                    WHEN al.tx_hash LIKE '%rvn%' OR al.tx_hash LIKE '%ravencoin%' THEN 'RVN'
+                    ELSE 'UNKNOWN'
+                END AS coin,
+                MAX(al.event_time) AS payoutTime,
+                SUM(CASE WHEN al.user_id != #{adminUserId} THEN COALESCE(al.amount_xmr, 0) ELSE 0 END) AS userTotalXmr,
+                SUM(CASE WHEN al.user_id != #{adminUserId} THEN COALESCE(al.amount_cal, 0) ELSE 0 END) AS userTotalCal,
+                SUM(CASE WHEN al.user_id != #{adminUserId} THEN COALESCE(al.amount_cny, 0) ELSE 0 END) AS userTotalCny,
+                SUM(CASE WHEN al.user_id = #{adminUserId} THEN COALESCE(al.amount_xmr, 0) ELSE 0 END) AS platformXmr,
+                SUM(CASE WHEN al.user_id = #{adminUserId} THEN COALESCE(al.amount_cal, 0) ELSE 0 END) AS platformCal,
+                SUM(CASE WHEN al.user_id = #{adminUserId} THEN COALESCE(al.amount_cny, 0) ELSE 0 END) AS platformCny,
+                SUM(COALESCE(al.amount_xmr, 0)) AS totalXmr,
+                SUM(COALESCE(al.amount_cal, 0)) AS totalCal,
+                SUM(COALESCE(al.amount_cny, 0)) AS totalCny,
+                COUNT(DISTINCT CASE WHEN al.user_id != #{adminUserId} THEN al.user_id END) AS userCount,
+                COALESCE(
+                    (SELECT f.total_coin FROM f2pool_payhash_hourly_settlements f 
+                     WHERE al.tx_hash = CONCAT('f2pool:payhash-hourly:', LOWER(f.coin), ':', f.account, ':', DATE_FORMAT(f.window_start, '%Y-%m-%dT%H:%i'))
+                     LIMIT 1),
+                    (SELECT a.total_coin FROM antpool_payhash_hourly_settlements a 
+                     WHERE al.tx_hash = CONCAT('antpool:payhash-hourly:', LOWER(a.coin), ':', a.account, ':', DATE_FORMAT(a.window_start, '%Y-%m-%dT%H:%i'))
+                     LIMIT 1)
+                ) AS totalCoin
+            FROM asset_ledger al
+            WHERE (al.ref_type = 'mining_payout' OR al.ref_type = 'bonus')
+              AND al.tx_hash IS NOT NULL
+              AND al.tx_hash != ''
+              AND al.tx_hash NOT LIKE 'c3pool:%'
+              AND al.tx_hash NOT LIKE 'xmr:%'
+            <if test="startTime != null">
+                AND al.event_time <![CDATA[>=]]> #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND al.event_time <![CDATA[<]]> #{endTime}
+            </if>
+            <if test="coin != null and coin != ''">
+                <choose>
+                    <when test="coin == 'XMR'">
+                        AND 1=0
+                    </when>
+                    <when test="coin == 'CFX'">
+                        AND (al.tx_hash LIKE 'f2pool:%conflux%' OR al.tx_hash LIKE 'f2pool:%cfx%')
+                    </when>
+                    <when test="coin == 'RVN'">
+                        AND (al.tx_hash LIKE 'antpool:%rvn%' OR al.tx_hash LIKE 'antpool:%ravencoin%')
+                    </when>
+                </choose>
+            </if>
+            <if test="poolSource != null and poolSource != ''">
+                <choose>
+                    <when test="poolSource == 'C3POOL'">
+                        AND 1=0
+                    </when>
+                    <when test="poolSource == 'F2POOL'">
+                        AND al.tx_hash LIKE 'f2pool:%'
+                    </when>
+                    <when test="poolSource == 'ANTPOOL'">
+                        AND al.tx_hash LIKE 'antpool:%'
+                    </when>
+                </choose>
+            </if>
+            GROUP BY al.tx_hash
+        ) combined_results
+        ORDER BY payoutTime DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
 </mapper>

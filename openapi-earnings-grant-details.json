@@ -1,0 +1,380 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "收益发放明细接口",
+    "description": "查询每一笔发放到用户钱包的记录，包含挖矿收益、邀请佣金、被邀请者折扣等所有用户收益",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "本地开发环境"
+    }
+  ],
+  "tags": [
+    {
+      "name": "管理员/收益发放",
+      "description": "收益发放记录与抽成汇总"
+    }
+  ],
+  "paths": {
+    "/api/v1/admin/earnings/grant-details": {
+      "get": {
+        "tags": [
+          "管理员/收益发放"
+        ],
+        "summary": "收益发放明细（每一笔发放记录）",
+        "description": "查询每一笔发放到用户钱包的记录，按 txHash 聚合。\n\n包含的收益类型：\n- CPU 挖矿收益\n- GPU 挖矿收益\n- 邀请佣金（邀请者获得）\n- 被邀请者折扣（新手手续费折扣）\n\n返回字段：\n- txHash: 交易哈希，唯一标识一次发放\n- poolSource: 矿池来源（C3POOL/F2POOL/ANTPOOL）\n- coin: 币种（XMR/CFX/RVN）\n- payoutTime: 发放时间\n- userTotalXmr/Cal/Cny: 发放给所有用户的总额\n- platformXmr/Cal/Cny: 平台抽成金额\n- totalXmr/Cal/Cny: 总发放金额（用户+平台）\n- userCount: 本次发放受益的用户数量\n\n注意：\n- XMR 只统计来自 C3Pool 的数据，排除 F2Pool/Antpool 的 XMR\n- 数据来源于 asset_ledger 表\n- 按发放时间倒序排列",
+        "operationId": "listGrantDetails",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "页码，从 1 开始",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "每页数量",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "example": 20
+            }
+          },
+          {
+            "name": "dateStart",
+            "in": "query",
+            "description": "开始日期，格式：yyyy-MM-dd",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-02-01"
+            }
+          },
+          {
+            "name": "dateEnd",
+            "in": "query",
+            "description": "结束日期，格式：yyyy-MM-dd",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-02-10"
+            }
+          },
+          {
+            "name": "coin",
+            "in": "query",
+            "description": "币种筛选",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "XMR",
+                "CFX",
+                "RVN"
+              ],
+              "example": "XMR"
+            }
+          },
+          {
+            "name": "poolSource",
+            "in": "query",
+            "description": "矿池来源筛选",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "C3POOL",
+                "F2POOL",
+                "ANTPOOL"
+              ],
+              "example": "C3POOL"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "状态码，200表示成功",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "响应消息",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "object",
+                      "description": "分页数据",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "format": "int64",
+                          "description": "总记录数",
+                          "example": 150
+                        },
+                        "page": {
+                          "type": "integer",
+                          "description": "当前页码",
+                          "example": 1
+                        },
+                        "size": {
+                          "type": "integer",
+                          "description": "每页数量",
+                          "example": 20
+                        },
+                        "items": {
+                          "type": "array",
+                          "description": "发放明细列表",
+                          "items": {
+                            "$ref": "#/components/schemas/EarningsGrantDetail"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "success": {
+                    "summary": "成功示例",
+                    "value": {
+                      "code": 200,
+                      "message": "success",
+                      "data": {
+                        "total": 150,
+                        "page": 1,
+                        "size": 20,
+                        "items": [
+                          {
+                            "txHash": "c3pool:abc123def456...",
+                            "poolSource": "C3POOL",
+                            "coin": "XMR",
+                            "payoutTime": "2026-02-10T10:00:00",
+                            "userTotalXmr": 1.2345,
+                            "userTotalCal": 1234.5678,
+                            "userTotalCny": 123.45,
+                            "platformXmr": 0.5291,
+                            "platformCal": 529.1000,
+                            "platformCny": 52.91,
+                            "totalXmr": 1.7636,
+                            "totalCal": 1763.6678,
+                            "totalCny": 176.36,
+                            "userCount": 15,
+                            "totalCoin": 1250.5678
+                          },
+                          {
+                            "txHash": "f2pool:payhash-hourly:conflux:suanlibaovip:2026-02-10T09:00:00",
+                            "poolSource": "F2POOL",
+                            "coin": "CFX",
+                            "payoutTime": "2026-02-10T09:00:00",
+                            "userTotalXmr": 0.8765,
+                            "userTotalCal": 876.5000,
+                            "userTotalCny": 87.65,
+                            "platformXmr": 0.3757,
+                            "platformCal": 375.7000,
+                            "platformCny": 37.57,
+                            "totalXmr": 1.2522,
+                            "totalCal": 1252.2000,
+                            "totalCny": 125.22,
+                            "userCount": 8,
+                            "totalCoin": 850.75
+                          },
+                          {
+                            "txHash": "antpool:payhash-hourly:rvn:suanlibao:2026-02-10T08:00:00",
+                            "poolSource": "ANTPOOL",
+                            "coin": "RVN",
+                            "payoutTime": "2026-02-10T08:00:00",
+                            "userTotalXmr": 0.5432,
+                            "userTotalCal": 543.2000,
+                            "userTotalCny": 54.32,
+                            "platformXmr": 0.2328,
+                            "platformCal": 232.8000,
+                            "platformCny": 23.28,
+                            "totalXmr": 0.7760,
+                            "totalCal": 776.0000,
+                            "totalCny": 77.60,
+                            "userCount": 5,
+                            "totalCoin": 8500.25
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 400
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "dateStart 格式错误，应为 yyyy-MM-dd"
+                    },
+                    "data": {
+                      "type": "object",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未授权"
+          },
+          "403": {
+            "description": "无权限（需要ADMIN角色）"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EarningsGrantDetail": {
+        "type": "object",
+        "description": "收益发放明细",
+        "properties": {
+          "txHash": {
+            "type": "string",
+            "description": "交易哈希，唯一标识一次发放",
+            "example": "c3pool:abc123def456..."
+          },
+          "poolSource": {
+            "type": "string",
+            "description": "矿池来源",
+            "example": "C3POOL",
+            "enum": [
+              "C3POOL",
+              "F2POOL",
+              "ANTPOOL",
+              "UNKNOWN"
+            ]
+          },
+          "coin": {
+            "type": "string",
+            "description": "币种",
+            "example": "XMR",
+            "enum": [
+              "XMR",
+              "CFX",
+              "RVN",
+              "UNKNOWN"
+            ]
+          },
+          "payoutTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "发放时间",
+            "example": "2026-02-10T10:00:00"
+          },
+          "userTotalXmr": {
+            "type": "number",
+            "format": "decimal",
+            "description": "发放给所有用户的 XMR 总额",
+            "example": 1.2345
+          },
+          "userTotalCal": {
+            "type": "number",
+            "format": "decimal",
+            "description": "发放给所有用户的 CAL 总额",
+            "example": 1234.5678
+          },
+          "userTotalCny": {
+            "type": "number",
+            "format": "decimal",
+            "description": "发放给所有用户的 CNY 总额",
+            "example": 123.45
+          },
+          "platformXmr": {
+            "type": "number",
+            "format": "decimal",
+            "description": "平台抽成的 XMR 金额",
+            "example": 0.5291
+          },
+          "platformCal": {
+            "type": "number",
+            "format": "decimal",
+            "description": "平台抽成的 CAL 金额",
+            "example": 529.1000
+          },
+          "platformCny": {
+            "type": "number",
+            "format": "decimal",
+            "description": "平台抽成的 CNY 金额",
+            "example": 52.91
+          },
+          "totalXmr": {
+            "type": "number",
+            "format": "decimal",
+            "description": "总发放金额（用户+平台，XMR）",
+            "example": 1.7636
+          },
+          "totalCal": {
+            "type": "number",
+            "format": "decimal",
+            "description": "总发放金额（用户+平台，CAL）",
+            "example": 1763.6678
+          },
+          "totalCny": {
+            "type": "number",
+            "format": "decimal",
+            "description": "总发放金额（用户+平台，CNY）",
+            "example": 176.36
+          },
+          "userCount": {
+            "type": "integer",
+            "description": "本次发放受益的用户数量",
+            "example": 15
+          },
+          "totalCoin": {
+            "type": "number",
+            "format": "decimal",
+            "description": "原始币种数量（CFX/RVN/XMR 的原始挖矿数量）",
+            "example": 1250.5678
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT Token 认证"
+      }
+    }
+  }
+}
+
