@@ -3,10 +3,13 @@ package com.slb.mining_backend.modules.device.controller;
 import com.slb.mining_backend.common.api.ApiResponse;
 import com.slb.mining_backend.common.security.CustomUserDetails;
 
+import com.slb.mining_backend.modules.device.dto.AckCommandRequest;
 import com.slb.mining_backend.modules.device.dto.DeviceGpuHashrateReportReqDto;
 import com.slb.mining_backend.modules.device.dto.DeviceHashrateReportReqDto;
 import com.slb.mining_backend.modules.device.dto.DeviceRegisterReqDto;
 import com.slb.mining_backend.modules.device.dto.DeviceUpdateReqDto;
+import com.slb.mining_backend.modules.device.dto.SendCommandRequest;
+import com.slb.mining_backend.modules.device.dto.SendCommandResponse;
 import com.slb.mining_backend.modules.device.service.DeviceService;
 import com.slb.mining_backend.modules.device.vo.DeviceGpuHashrateSeriesVo;
 import com.slb.mining_backend.modules.device.vo.DeviceGpuHashrateSnapshotVo;
@@ -325,6 +328,74 @@ public class DeviceController {
             @Parameter(description = "当前登录用户信息，由系统自动注入")
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         deviceService.deleteDevice(deviceId, userDetails.getUser().getId());
+        return ApiResponse.ok();
+    }
+
+    @PostMapping("/{deviceId}/remote-control")
+    @Operation(
+            summary = "发送远程控制指令",
+            description = """
+                    Web或App端调用此接口向指定设备发送启停指令。
+                    
+                    示例请求 (cURL):
+                    curl -X POST "http://localhost:8080/api/v1/devices/device-123456/remote-control" \
+                      -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+                      -H "Content-Type: application/json" \
+                      -d '{"commandType": "start_cpu"}'
+                    
+                    示例响应 (JSON):
+                    {
+                      "code": 0,
+                      "message": "ok",
+                      "data": {
+                        "commandId": "cmd-uuid-123456",
+                        "status": "pending",
+                        "expiresAt": 1737014700
+                      },
+                      "traceId": "b3f7e6c9a1d24c31"
+                    }
+                    """
+    )
+    public ApiResponse<SendCommandResponse> sendRemoteControl(
+            @Parameter(description = "设备唯一标识", required = true, example = "device-123456")
+            @PathVariable String deviceId,
+            @Parameter(description = "远程控制指令请求体", required = true)
+            @Valid @RequestBody SendCommandRequest request,
+            @Parameter(description = "当前登录用户信息，由系统自动注入")
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        SendCommandResponse result = deviceService.sendRemoteControl(deviceId, request, userDetails.getUser().getId());
+        return ApiResponse.ok(result);
+    }
+
+    @PostMapping("/{deviceId}/remote-control/ack")
+    @Operation(
+            summary = "确认指令已执行",
+            description = """
+                    客户端执行完指令后调用此接口确认执行结果。
+                    
+                    示例请求 (cURL):
+                    curl -X POST "http://localhost:8080/api/v1/devices/device-123456/remote-control/ack" \
+                      -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+                      -H "Content-Type: application/json" \
+                      -d '{"commandId": "cmd-uuid-123456", "success": true, "executedAt": 1737014450}'
+                    
+                    示例响应 (JSON):
+                    {
+                      "code": 0,
+                      "message": "ok",
+                      "data": null,
+                      "traceId": "b3f7e6c9a1d24c31"
+                    }
+                    """
+    )
+    public ApiResponse<Void> ackRemoteControl(
+            @Parameter(description = "设备唯一标识", required = true, example = "device-123456")
+            @PathVariable String deviceId,
+            @Parameter(description = "确认执行请求体", required = true)
+            @Valid @RequestBody AckCommandRequest request,
+            @Parameter(description = "当前登录用户信息，由系统自动注入")
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        deviceService.ackRemoteControl(deviceId, request, userDetails.getUser().getId());
         return ApiResponse.ok();
     }
 }

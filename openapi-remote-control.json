@@ -1,0 +1,631 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "设备远程控制接口",
+    "version": "1.0.0",
+    "description": "远程启停CPU/GPU挖矿功能接口文档\n\n**功能特点：**\n- ✅ 支持远程启停CPU/GPU挖矿\n- ✅ 客户端轮询获取待执行指令\n- ✅ 指令5分钟自动过期\n- ✅ 完整的权限验证\n- ✅ 自动清理过期和历史数据\n\n**工作流程：**\n1. Web/App发送控制指令\n2. 客户端轮询设备详情接口获取待执行指令\n3. 客户端执行指令（启动/停止挖矿）\n4. 客户端回传执行结果"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "本地开发环境"
+    },
+    {
+      "url": "https://suanlibao.xyz",
+      "description": "生产环境"
+    }
+  ],
+  "tags": [
+    {
+      "name": "用户端/设备",
+      "description": "设备管理与远程控制"
+    }
+  ],
+  "paths": {
+    "/api/v1/devices/{deviceId}": {
+      "get": {
+        "tags": ["用户端/设备"],
+        "summary": "获取设备详情（含远程控制指令）",
+        "description": "获取设备详细信息，包括待执行的远程控制指令。\n\n**客户端轮询机制：**\n- 客户端每60秒轮询一次此接口\n- 检查 `remoteControl` 字段是否有待执行指令\n- 如果有指令，执行后调用 ack 接口确认\n\n**remoteControl 字段说明：**\n- 如果没有待执行指令，该字段为 `null`\n- 如果有待执行指令，包含 `cpuCommand`、`gpuCommand`、`commandId` 等信息\n- `cpuCommand` 可能的值：`start_cpu`、`stop_cpu`、`none`\n- `gpuCommand` 可能的值：`start_gpu`、`stop_gpu`、`none`",
+        "operationId": "getDeviceDetail",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "description": "设备唯一标识",
+            "schema": {
+              "type": "string",
+              "example": "device-123456"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {"type": "integer", "example": 0},
+                    "message": {"type": "string", "example": "ok"},
+                    "data": {"$ref": "#/components/schemas/DeviceVo"},
+                    "traceId": {"type": "string", "example": "b3f7e6c9a1d24c31"}
+                  }
+                },
+                "examples": {
+                  "无待执行指令": {
+                    "summary": "设备详情（无待执行指令）",
+                    "value": {
+                      "code": 0,
+                      "message": "ok",
+                      "data": {
+                        "deviceId": "device-123456",
+                        "deviceName": "My Mining Rig #1",
+                        "deviceType": "gpu",
+                        "status": 1,
+                        "cpuHashrate": 1500.5,
+                        "gpuHashrate": 25000.0,
+                        "cpuDailyIncomeCny": 12.50,
+                        "gpuDailyIncomeCny": 85.30,
+                        "lastOnlineTime": "2026-02-16T10:30:00",
+                        "createTime": "2026-01-01T08:00:00",
+                        "deviceInfo": {
+                          "os": "Windows 11",
+                          "cpu": "Intel i7-12700K",
+                          "gpu": "NVIDIA RTX 3080"
+                        },
+                        "remoteControl": null
+                      },
+                      "traceId": "b3f7e6c9a1d24c31"
+                    }
+                  },
+                  "有待执行指令": {
+                    "summary": "设备详情（有待执行指令）",
+                    "value": {
+                      "code": 0,
+                      "message": "ok",
+                      "data": {
+                        "deviceId": "device-123456",
+                        "deviceName": "My Mining Rig #1",
+                        "deviceType": "gpu",
+                        "status": 1,
+                        "cpuHashrate": 1500.5,
+                        "gpuHashrate": 25000.0,
+                        "cpuDailyIncomeCny": 12.50,
+                        "gpuDailyIncomeCny": 85.30,
+                        "lastOnlineTime": "2026-02-16T10:30:00",
+                        "createTime": "2026-01-01T08:00:00",
+                        "deviceInfo": {
+                          "os": "Windows 11",
+                          "cpu": "Intel i7-12700K",
+                          "gpu": "NVIDIA RTX 3080"
+                        },
+                        "remoteControl": {
+                          "cpuCommand": "start_cpu",
+                          "gpuCommand": "none",
+                          "commandId": "cmd-uuid-123456",
+                          "timestamp": 1737014400,
+                          "expiresAt": 1737014700
+                        }
+                      },
+                      "traceId": "b3f7e6c9a1d24c31"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "设备不存在或无权访问",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"},
+                "example": {
+                  "code": 404,
+                  "message": "设备不存在或您没有权限访问",
+                  "error": {
+                    "code": "DEVICE_NOT_FOUND",
+                    "displayMessage": "设备不存在或您没有权限访问"
+                  },
+                  "traceId": "b3f7e6c9a1d24c31"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{deviceId}/remote-control": {
+      "post": {
+        "tags": ["用户端/设备"],
+        "summary": "发送远程控制指令",
+        "description": "Web或App端调用此接口向指定设备发送启停指令。\n\n**指令类型：**\n- `start_cpu` - 启动CPU挖矿\n- `stop_cpu` - 停止CPU挖矿\n- `start_gpu` - 启动GPU挖矿\n- `stop_gpu` - 停止GPU挖矿\n\n**业务逻辑：**\n1. 验证设备归属权限\n2. 将该设备同类型的旧指令标记为过期\n3. 创建新指令（5分钟后自动过期）\n4. 返回指令ID和过期时间\n\n**注意事项：**\n- 同一设备同一类型的指令，新指令会覆盖旧指令\n- 指令5分钟未执行会自动过期\n- 客户端需要通过轮询设备详情接口获取指令",
+        "operationId": "sendRemoteControl",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "description": "设备唯一标识",
+            "schema": {
+              "type": "string",
+              "example": "device-123456"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/SendCommandRequest"},
+              "examples": {
+                "启动CPU挖矿": {
+                  "summary": "启动CPU挖矿",
+                  "value": {
+                    "commandType": "start_cpu"
+                  }
+                },
+                "停止CPU挖矿": {
+                  "summary": "停止CPU挖矿",
+                  "value": {
+                    "commandType": "stop_cpu"
+                  }
+                },
+                "启动GPU挖矿": {
+                  "summary": "启动GPU挖矿",
+                  "value": {
+                    "commandType": "start_gpu"
+                  }
+                },
+                "停止GPU挖矿": {
+                  "summary": "停止GPU挖矿",
+                  "value": {
+                    "commandType": "stop_gpu"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {"type": "integer", "example": 0},
+                    "message": {"type": "string", "example": "ok"},
+                    "data": {"$ref": "#/components/schemas/SendCommandResponse"},
+                    "traceId": {"type": "string", "example": "b3f7e6c9a1d24c31"}
+                  }
+                },
+                "example": {
+                  "code": 0,
+                  "message": "ok",
+                  "data": {
+                    "commandId": "cmd-uuid-123456",
+                    "status": "pending",
+                    "expiresAt": 1737014700
+                  },
+                  "traceId": "b3f7e6c9a1d24c31"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "无效的指令类型",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"},
+                "example": {
+                  "code": 400,
+                  "message": "无效的指令类型",
+                  "error": {
+                    "code": "INVALID_COMMAND_TYPE",
+                    "displayMessage": "无效的指令类型"
+                  },
+                  "traceId": "b3f7e6c9a1d24c31"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无权操作此设备",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"},
+                "example": {
+                  "code": 403,
+                  "message": "无权操作此设备",
+                  "error": {
+                    "code": "DEVICE_ACCESS_DENIED",
+                    "displayMessage": "您没有权限控制此设备"
+                  },
+                  "traceId": "b3f7e6c9a1d24c31"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{deviceId}/remote-control/ack": {
+      "post": {
+        "tags": ["用户端/设备"],
+        "summary": "确认指令已执行",
+        "description": "客户端执行完指令后调用此接口确认执行结果。\n\n**执行流程：**\n1. 客户端从设备详情接口获取待执行指令\n2. 客户端执行指令（启动/停止挖矿）\n3. 客户端调用此接口确认执行结果\n4. 服务端更新指令状态为 EXECUTED 或 FAILED\n\n**防重复执行：**\n- 客户端应维护已执行的 commandId 集合\n- 避免重复执行同一指令\n- 只能确认 PENDING 状态的指令\n\n**注意事项：**\n- 执行成功时，`success` 为 `true`，`error` 为 `null`\n- 执行失败时，`success` 为 `false`，`error` 填写失败原因\n- 指令只能确认一次，重复确认会返回错误",
+        "operationId": "ackRemoteControl",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "description": "设备唯一标识",
+            "schema": {
+              "type": "string",
+              "example": "device-123456"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/AckCommandRequest"},
+              "examples": {
+                "执行成功": {
+                  "summary": "指令执行成功",
+                  "value": {
+                    "commandId": "cmd-uuid-123456",
+                    "success": true,
+                    "executedAt": 1737014450
+                  }
+                },
+                "执行失败": {
+                  "summary": "指令执行失败",
+                  "value": {
+                    "commandId": "cmd-uuid-123456",
+                    "success": false,
+                    "error": "GPU驱动未安装",
+                    "executedAt": 1737014450
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {"type": "integer", "example": 0},
+                    "message": {"type": "string", "example": "ok"},
+                    "data": {"type": "object", "nullable": true, "example": null},
+                    "traceId": {"type": "string", "example": "b3f7e6c9a1d24c31"}
+                  }
+                },
+                "example": {
+                  "code": 0,
+                  "message": "ok",
+                  "data": null,
+                  "traceId": "b3f7e6c9a1d24c31"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "指令已被处理或设备ID不匹配",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"},
+                "examples": {
+                  "重复确认": {
+                    "summary": "指令已被处理",
+                    "value": {
+                      "code": 400,
+                      "message": "指令已被处理，无法重复确认",
+                      "error": {
+                        "code": "COMMAND_ALREADY_PROCESSED",
+                        "displayMessage": "指令已被处理，无法重复确认"
+                      },
+                      "traceId": "b3f7e6c9a1d24c31"
+                    }
+                  },
+                  "设备ID不匹配": {
+                    "summary": "设备ID不匹配",
+                    "value": {
+                      "code": 400,
+                      "message": "设备ID不匹配",
+                      "error": {
+                        "code": "DEVICE_ID_MISMATCH",
+                        "displayMessage": "设备ID不匹配"
+                      },
+                      "traceId": "b3f7e6c9a1d24c31"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "指令不存在或已过期",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"},
+                "example": {
+                  "code": 404,
+                  "message": "指令不存在或已过期",
+                  "error": {
+                    "code": "COMMAND_NOT_FOUND",
+                    "displayMessage": "指令不存在或已过期"
+                  },
+                  "traceId": "b3f7e6c9a1d24c31"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "请输入用户 JWT Token"
+      }
+    },
+    "schemas": {
+      "DeviceVo": {
+        "type": "object",
+        "description": "设备详情",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "description": "设备ID",
+            "example": "device-123456"
+          },
+          "deviceName": {
+            "type": "string",
+            "description": "设备名称",
+            "example": "My Mining Rig #1"
+          },
+          "deviceType": {
+            "type": "string",
+            "description": "设备类型",
+            "example": "gpu"
+          },
+          "status": {
+            "type": "integer",
+            "description": "设备状态（0-离线，1-在线）",
+            "example": 1
+          },
+          "cpuHashrate": {
+            "type": "number",
+            "format": "double",
+            "description": "CPU算力（H/s）",
+            "example": 1500.5
+          },
+          "gpuHashrate": {
+            "type": "number",
+            "format": "double",
+            "description": "GPU算力（MH/s）",
+            "example": 25000.0
+          },
+          "gpuHashrateOctopus": {
+            "type": "number",
+            "format": "double",
+            "description": "GPU Octopus算力（MH/s）",
+            "example": 25000.0
+          },
+          "gpuHashrateKawpow": {
+            "type": "number",
+            "format": "double",
+            "description": "GPU Kawpow算力（MH/s）",
+            "example": 0.0
+          },
+          "cpuDailyIncomeCny": {
+            "type": "number",
+            "format": "double",
+            "description": "CPU日收益（CNY）",
+            "example": 12.50
+          },
+          "gpuDailyIncomeCny": {
+            "type": "number",
+            "format": "double",
+            "description": "GPU日收益（CNY）",
+            "example": 85.30
+          },
+          "gpuDailyIncomeCnyOctopus": {
+            "type": "number",
+            "format": "double",
+            "description": "GPU Octopus日收益（CNY）",
+            "example": 85.30
+          },
+          "gpuDailyIncomeCnyKawpow": {
+            "type": "number",
+            "format": "double",
+            "description": "GPU Kawpow日收益（CNY）",
+            "example": 0.0
+          },
+          "lastOnlineTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "最后在线时间",
+            "example": "2026-02-16T10:30:00"
+          },
+          "createTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "创建时间",
+            "example": "2026-01-01T08:00:00"
+          },
+          "deviceInfo": {
+            "type": "object",
+            "description": "设备信息",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "os": "Windows 11",
+              "cpu": "Intel i7-12700K",
+              "gpu": "NVIDIA RTX 3080"
+            }
+          },
+          "remoteControl": {
+            "allOf": [{"$ref": "#/components/schemas/RemoteControlStatus"}],
+            "description": "远程控制状态（如果没有待执行指令则为 null）",
+            "nullable": true
+          }
+        }
+      },
+      "RemoteControlStatus": {
+        "type": "object",
+        "description": "远程控制状态",
+        "properties": {
+          "cpuCommand": {
+            "type": "string",
+            "description": "CPU控制指令",
+            "enum": ["start_cpu", "stop_cpu", "none"],
+            "example": "start_cpu"
+          },
+          "gpuCommand": {
+            "type": "string",
+            "description": "GPU控制指令",
+            "enum": ["start_gpu", "stop_gpu", "none"],
+            "example": "none"
+          },
+          "commandId": {
+            "type": "string",
+            "description": "指令唯一ID（UUID）",
+            "example": "cmd-uuid-123456"
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "指令创建时间戳（秒）",
+            "example": 1737014400
+          },
+          "expiresAt": {
+            "type": "integer",
+            "format": "int64",
+            "description": "指令过期时间戳（秒）",
+            "example": 1737014700
+          }
+        }
+      },
+      "SendCommandRequest": {
+        "type": "object",
+        "required": ["commandType"],
+        "properties": {
+          "commandType": {
+            "type": "string",
+            "description": "指令类型",
+            "enum": ["start_cpu", "stop_cpu", "start_gpu", "stop_gpu"],
+            "example": "start_cpu"
+          }
+        }
+      },
+      "SendCommandResponse": {
+        "type": "object",
+        "description": "发送指令响应",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "description": "指令ID",
+            "example": "cmd-uuid-123456"
+          },
+          "status": {
+            "type": "string",
+            "description": "指令状态",
+            "example": "pending"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "format": "int64",
+            "description": "过期时间戳（秒）",
+            "example": 1737014700
+          }
+        }
+      },
+      "AckCommandRequest": {
+        "type": "object",
+        "required": ["commandId", "success", "executedAt"],
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "description": "指令ID",
+            "example": "cmd-uuid-123456"
+          },
+          "success": {
+            "type": "boolean",
+            "description": "是否执行成功",
+            "example": true
+          },
+          "error": {
+            "type": "string",
+            "description": "失败原因（仅在success=false时）",
+            "nullable": true,
+            "example": "GPU驱动未安装"
+          },
+          "executedAt": {
+            "type": "integer",
+            "format": "int64",
+            "description": "执行时间戳（秒）",
+            "example": 1737014450
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "description": "错误响应",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "错误码",
+            "example": 404
+          },
+          "message": {
+            "type": "string",
+            "description": "错误消息",
+            "example": "指令不存在或已过期"
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "业务错误码",
+                "example": "COMMAND_NOT_FOUND"
+              },
+              "displayMessage": {
+                "type": "string",
+                "description": "用户友好的错误消息",
+                "example": "指令不存在或已过期"
+              }
+            }
+          },
+          "traceId": {
+            "type": "string",
+            "description": "追踪ID",
+            "example": "b3f7e6c9a1d24c31"
+          }
+        }
+      }
+    }
+  }
+}
+

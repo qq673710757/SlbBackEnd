@@ -59,6 +59,7 @@ class EarningsEstimateConsistencyTest {
                 deviceMapper,
                 Mockito.mock(DeviceHashrateReportMapper.class),
                 Mockito.mock(com.slb.mining_backend.modules.device.mapper.DeviceGpuHashrateReportMapper.class),
+                Mockito.mock(com.slb.mining_backend.modules.device.mapper.DeviceRemoteCommandMapper.class),
                 new ObjectMapper(),
                 marketDataService,
                 deviceUserMapper,

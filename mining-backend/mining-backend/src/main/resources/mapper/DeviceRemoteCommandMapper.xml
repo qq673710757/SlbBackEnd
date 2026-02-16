@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.slb.mining_backend.modules.device.mapper.DeviceRemoteCommandMapper">
+
+    <resultMap id="BaseResultMap" type="com.slb.mining_backend.modules.device.entity.DeviceRemoteCommand">
+        <id column="id" property="id"/>
+        <result column="command_id" property="commandId"/>
+        <result column="user_id" property="userId"/>
+        <result column="device_id" property="deviceId"/>
+        <result column="command_type" property="commandType" typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result column="status" property="status" typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="executed_at" property="executedAt"/>
+        <result column="expires_at" property="expiresAt"/>
+        <result column="error_message" property="errorMessage"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.slb.mining_backend.modules.device.entity.DeviceRemoteCommand">
+        INSERT INTO device_remote_commands (
+            command_id, user_id, device_id, command_type, status,
+            created_at, executed_at, expires_at, error_message
+        ) VALUES (
+            #{commandId}, #{userId}, #{deviceId}, #{commandType}, #{status},
+            #{createdAt}, #{executedAt}, #{expiresAt}, #{errorMessage}
+        )
+    </insert>
+
+    <select id="findLatestPendingCommand" resultMap="BaseResultMap">
+        SELECT * FROM device_remote_commands
+        WHERE user_id = #{userId}
+          AND device_id = #{deviceId}
+          AND command_type IN
+          <foreach collection="types" item="type" open="(" separator="," close=")">
+              #{type}
+          </foreach>
+          AND status = 'PENDING'
+          AND expires_at > #{now}
+        ORDER BY created_at DESC
+        LIMIT 1
+    </select>
+
+    <update id="expireOldCommands">
+        UPDATE device_remote_commands
+        SET status = 'EXPIRED'
+        WHERE device_id = #{deviceId}
+          AND command_type = #{type}
+          AND status = 'PENDING'
+    </update>
+
+    <select id="findByCommandIdAndUserId" resultMap="BaseResultMap">
+        SELECT * FROM device_remote_commands
+        WHERE command_id = #{commandId}
+          AND user_id = #{userId}
+        LIMIT 1
+    </select>
+
+    <update id="update" parameterType="com.slb.mining_backend.modules.device.entity.DeviceRemoteCommand">
+        UPDATE device_remote_commands
+        SET status = #{status},
+            executed_at = #{executedAt},
+            error_message = #{errorMessage}
+        WHERE id = #{id}
+    </update>
+
+    <update id="expireTimeoutCommands">
+        UPDATE device_remote_commands
+        SET status = 'EXPIRED'
+        WHERE status = 'PENDING'
+          AND expires_at <![CDATA[<]]> #{now}
+    </update>
+
+    <delete id="deleteOldRecords">
+        DELETE FROM device_remote_commands
+        WHERE created_at <![CDATA[<]]> #{threshold}
+    </delete>
+
+</mapper>
+

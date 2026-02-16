@@ -28,4 +28,5 @@ public class DeviceVo {
     private LocalDateTime createTime;
     private Map<String, String> deviceInfo; // 详情接口会包含此字段
     private String deviceSecret;
+    private RemoteControlStatus remoteControl; // 远程控制状态
 }

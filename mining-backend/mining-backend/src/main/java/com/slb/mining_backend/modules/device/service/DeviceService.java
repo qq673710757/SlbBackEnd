@@ -5,19 +5,27 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slb.mining_backend.common.exception.BizException;
 import com.slb.mining_backend.common.vo.PageVo;
+import com.slb.mining_backend.modules.device.dto.AckCommandRequest;
 import com.slb.mining_backend.modules.device.dto.DeviceHashrateReportReqDto;
 import com.slb.mining_backend.modules.device.dto.DeviceRegisterReqDto;
 import com.slb.mining_backend.modules.device.dto.DeviceUpdateReqDto;
+import com.slb.mining_backend.modules.device.dto.SendCommandRequest;
+import com.slb.mining_backend.modules.device.dto.SendCommandResponse;
 import com.slb.mining_backend.modules.device.entity.Device;
 import com.slb.mining_backend.modules.device.entity.DeviceHashrateReport;
+import com.slb.mining_backend.modules.device.entity.DeviceRemoteCommand;
+import com.slb.mining_backend.modules.device.enums.CommandStatus;
+import com.slb.mining_backend.modules.device.enums.CommandType;
 import com.slb.mining_backend.modules.device.mapper.DeviceHashrateReportMapper;
 import com.slb.mining_backend.modules.device.mapper.DeviceMapper;
+import com.slb.mining_backend.modules.device.mapper.DeviceRemoteCommandMapper;
 import com.slb.mining_backend.modules.device.vo.DeviceGpuHashrateSnapshotVo;
 import com.slb.mining_backend.modules.device.vo.DeviceHashratePointVo;
 import com.slb.mining_backend.modules.device.vo.DeviceVo;
 import com.slb.mining_backend.modules.device.vo.GpuAlgorithmDailyIncomeVo;
 import com.slb.mining_backend.modules.device.vo.GpuAlgorithmHashrateVo;
 import com.slb.mining_backend.modules.device.vo.HashrateSummaryVo;
+import com.slb.mining_backend.modules.device.vo.RemoteControlStatus;
 import com.slb.mining_backend.modules.earnings.service.MarketDataService;
 import com.slb.mining_backend.modules.invite.config.InviteProperties;
 import com.slb.mining_backend.modules.invite.service.InviteService;
@@ -35,7 +43,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -49,6 +59,7 @@ public class DeviceService {
     private final DeviceMapper deviceMapper;
     private final DeviceHashrateReportMapper deviceHashrateReportMapper;
     private final com.slb.mining_backend.modules.device.mapper.DeviceGpuHashrateReportMapper deviceGpuHashrateReportMapper;
+    private final DeviceRemoteCommandMapper deviceRemoteCommandMapper;
     private final ObjectMapper objectMapper; // Spring Boot 自动配置
     private final MarketDataService marketDataService;
     private final UserMapper userMapper;
@@ -95,6 +106,7 @@ public class DeviceService {
     public DeviceService(DeviceMapper deviceMapper,
                          DeviceHashrateReportMapper deviceHashrateReportMapper,
                          com.slb.mining_backend.modules.device.mapper.DeviceGpuHashrateReportMapper deviceGpuHashrateReportMapper,
+                         DeviceRemoteCommandMapper deviceRemoteCommandMapper,
                          ObjectMapper objectMapper,
                          MarketDataService marketDataService,
                          UserMapper userMapper,
@@ -104,6 +116,7 @@ public class DeviceService {
         this.deviceMapper = deviceMapper;
         this.deviceHashrateReportMapper = deviceHashrateReportMapper;
         this.deviceGpuHashrateReportMapper = deviceGpuHashrateReportMapper;
+        this.deviceRemoteCommandMapper = deviceRemoteCommandMapper;
         this.objectMapper = objectMapper;
         this.marketDataService = marketDataService;
         this.userMapper = userMapper;
@@ -461,6 +474,13 @@ public class DeviceService {
             vo.setDeviceInfo(null);
         }
         vo.setDeviceSecret(null);
+        
+        // 查询待执行的远程控制指令
+        RemoteControlStatus remoteControl = getLatestPendingCommands(userId, deviceId);
+        if (remoteControl != null && remoteControl.hasCommands()) {
+            vo.setRemoteControl(remoteControl);
+        }
+        
         return vo;
     }
 
@@ -1067,6 +1087,151 @@ public class DeviceService {
         int affected = deviceMapper.markDevicesOffline(cutoff);
         if (affected > 0) {
             log.info("Marked {} devices offline due to no heartbeat since {}", affected, cutoff);
+        }
+    }
+
+    /**
+     * 发送远程控制指令
+     */
+    @Transactional
+    public SendCommandResponse sendRemoteControl(String deviceId, SendCommandRequest request, Long userId) {
+        // 1. 验证设备归属权限
+        findDeviceAndVerifyOwnership(deviceId, userId);
+        
+        // 2. 验证commandType合法性
+        CommandType commandType;
+        try {
+            commandType = CommandType.valueOf(request.getCommandType().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BizException("无效的指令类型");
+        }
+        
+        // 3. 将该设备同类型的旧指令标记为过期（避免冲突）
+        deviceRemoteCommandMapper.expireOldCommands(deviceId, commandType);
+        
+        // 4. 创建新指令
+        DeviceRemoteCommand command = new DeviceRemoteCommand();
+        command.setCommandId(UUID.randomUUID().toString());
+        command.setUserId(userId);
+        command.setDeviceId(deviceId);
+        command.setCommandType(commandType);
+        command.setStatus(CommandStatus.PENDING);
+        command.setCreatedAt(LocalDateTime.now());
+        command.setExpiresAt(LocalDateTime.now().plusMinutes(5)); // 5分钟过期
+        
+        deviceRemoteCommandMapper.insert(command);
+        
+        // 5. 返回结果
+        SendCommandResponse response = new SendCommandResponse();
+        response.setCommandId(command.getCommandId());
+        response.setStatus("pending");
+        response.setExpiresAt(command.getExpiresAt().toEpochSecond(ZoneOffset.UTC));
+        
+        return response;
+    }
+
+    /**
+     * 确认指令已执行
+     */
+    @Transactional
+    public void ackRemoteControl(String deviceId, AckCommandRequest request, Long userId) {
+        // 1. 查询指令是否存在
+        DeviceRemoteCommand command = deviceRemoteCommandMapper
+            .findByCommandIdAndUserId(request.getCommandId(), userId)
+            .orElseThrow(() -> new BizException(404, "指令不存在或已过期"));
+        
+        // 2. 验证设备ID匹配
+        if (!command.getDeviceId().equals(deviceId)) {
+            throw new BizException("设备ID不匹配");
+        }
+        
+        // 3. 验证指令状态（只能确认PENDING状态的指令）
+        if (command.getStatus() != CommandStatus.PENDING) {
+            throw new BizException("指令已被处理，无法重复确认");
+        }
+        
+        // 4. 更新指令状态
+        command.setStatus(request.getSuccess() ? CommandStatus.EXECUTED : CommandStatus.FAILED);
+        command.setExecutedAt(LocalDateTime.ofEpochSecond(request.getExecutedAt(), 0, ZoneOffset.UTC));
+        command.setErrorMessage(request.getError());
+        
+        deviceRemoteCommandMapper.update(command);
+        
+        // 5. 记录日志
+        log.info("Remote command {} for device {} executed: success={}, error={}", 
+            request.getCommandId(), deviceId, request.getSuccess(), request.getError());
+    }
+
+    /**
+     * 获取最新的待执行指令
+     */
+    private RemoteControlStatus getLatestPendingCommands(Long userId, String deviceId) {
+        LocalDateTime now = LocalDateTime.now();
+        
+        // 查询最新的CPU指令（PENDING状态且未过期）
+        DeviceRemoteCommand cpuCmd = deviceRemoteCommandMapper.findLatestPendingCommand(
+            userId, deviceId, 
+            Arrays.asList(CommandType.START_CPU, CommandType.STOP_CPU),
+            now
+        );
+        
+        // 查询最新的GPU指令（PENDING状态且未过期）
+        DeviceRemoteCommand gpuCmd = deviceRemoteCommandMapper.findLatestPendingCommand(
+            userId, deviceId,
+            Arrays.asList(CommandType.START_GPU, CommandType.STOP_GPU),
+            now
+        );
+        
+        // 如果都没有待执行指令，返回 null
+        if (cpuCmd == null && gpuCmd == null) {
+            return null;
+        }
+        
+        // 构造返回对象（CPU和GPU可能使用同一个commandId，也可能不同）
+        RemoteControlStatus status = new RemoteControlStatus();
+        
+        if (cpuCmd != null) {
+            status.setCpuCommand(cpuCmd.getCommandType().name().toLowerCase());
+            status.setCommandId(cpuCmd.getCommandId());
+            status.setTimestamp(cpuCmd.getCreatedAt().toEpochSecond(ZoneOffset.UTC));
+            status.setExpiresAt(cpuCmd.getExpiresAt().toEpochSecond(ZoneOffset.UTC));
+        }
+        
+        if (gpuCmd != null) {
+            status.setGpuCommand(gpuCmd.getCommandType().name().toLowerCase());
+            // 如果CPU和GPU指令不同，需要特殊处理（建议使用最新的commandId）
+            if (cpuCmd == null || gpuCmd.getCreatedAt().isAfter(cpuCmd.getCreatedAt())) {
+                status.setCommandId(gpuCmd.getCommandId());
+                status.setTimestamp(gpuCmd.getCreatedAt().toEpochSecond(ZoneOffset.UTC));
+                status.setExpiresAt(gpuCmd.getExpiresAt().toEpochSecond(ZoneOffset.UTC));
+            }
+        }
+        
+        return status;
+    }
+
+    /**
+     * 定时任务：每5分钟执行一次，将超时未执行的指令标记为EXPIRED
+     */
+    @Scheduled(cron = "0 */5 * * * ?")
+    @Transactional
+    public void expireTimeoutCommands() {
+        int count = deviceRemoteCommandMapper.expireTimeoutCommands(LocalDateTime.now());
+        if (count > 0) {
+            log.info("标记了 {} 条超时指令为EXPIRED", count);
+        }
+    }
+    
+    /**
+     * 定时任务：每天凌晨3点执行，删除7天前的历史记录
+     */
+    @Scheduled(cron = "0 0 3 * * ?")
+    @Transactional
+    public void deleteOldRemoteCommandRecords() {
+        LocalDateTime threshold = LocalDateTime.now().minusDays(7);
+        int count = deviceRemoteCommandMapper.deleteOldRecords(threshold);
+        if (count > 0) {
+            log.info("删除了 {} 条历史指令记录", count);
         }
     }
 }
